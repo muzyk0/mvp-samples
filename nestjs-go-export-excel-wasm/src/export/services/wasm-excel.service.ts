@@ -31,8 +31,7 @@ export class WasmExcelService implements OnModuleInit, OnModuleDestroy {
     private loadWasmFiles(): void {
         try {
             // Загружаем wasm_exec.js
-            const wasmExecCode = readFileSync(this.wasmExecPath, 'utf8');
-            eval(wasmExecCode);
+            require(this.wasmExecPath);
 
             // Загружаем WASM бинарник
             this.wasmBuffer = readFileSync(this.wasmModulePath);
