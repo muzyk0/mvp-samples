@@ -90,16 +90,9 @@ export class WasmExcelService implements OnModuleDestroy {
               chunks.push(Buffer.from(chunk));
             }
 
-            const [, currentRaw, totalRaw] = status.split(':');
-            const current = Number(currentRaw);
-            const total = Number(totalRaw);
-
-            if (onProgress && total > 0) {
-              onProgress({
-                current,
-                total,
-                percentage: Math.round((current / total) * 100),
-              });
+            const progress = this.parseProgressStatus(status);
+            if (progress && onProgress) {
+              onProgress(progress);
             }
 
             return;
@@ -201,6 +194,34 @@ export class WasmExcelService implements OnModuleDestroy {
     if (typeof result === 'string' && result.length > 0) {
       throw new Error(`${prefix}: ${result}`);
     }
+  }
+
+  private parseProgressStatus(status: string): WasmProgress | null {
+    const parts = status.split(':');
+    if (parts.length < 3) {
+      this.logger.warn(`Ignoring malformed WASM progress status: ${status}`);
+      return null;
+    }
+
+    const current = Number(parts[1]);
+    const total = Number(parts[2]);
+
+    if (
+      !Number.isFinite(current) ||
+      !Number.isFinite(total) ||
+      current < 0 ||
+      total <= 0 ||
+      current > total
+    ) {
+      this.logger.warn(`Ignoring invalid WASM progress numbers: ${status}`);
+      return null;
+    }
+
+    return {
+      current,
+      total,
+      percentage: Math.round((current / total) * 100),
+    };
   }
 
   private async createRuntime(): Promise<{

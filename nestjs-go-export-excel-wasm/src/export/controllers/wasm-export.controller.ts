@@ -12,6 +12,7 @@ import { ExportRequestDto } from '../dto/export-request.dto';
 import { ExportComparisonService } from '../services/export-comparison.service';
 import { StreamResponseService } from '../services/stream-response.service';
 import { WasmExcelService } from '../services/wasm-excel.service';
+import { parseQuickExportQuery } from './export-query-validation';
 
 @Controller('export/wasm')
 export class WasmExportController {
@@ -45,11 +46,13 @@ export class WasmExportController {
     @Query('seed') seed = '12345',
     @Res() response: Response,
   ): Promise<void> {
+    const query = parseQuickExportQuery(limit, seed);
+
     await this.download(
       {
-        limit: Number(limit),
-        seed: Number(seed),
-        fileName: `wasm-quick-${limit}.xlsx`,
+        limit: query.limit,
+        seed: query.seed,
+        fileName: `wasm-quick-${query.limit}.xlsx`,
       },
       response,
     );

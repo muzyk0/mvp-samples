@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsDate,
   IsInt,
   IsNumber,
   IsOptional,
@@ -22,10 +23,12 @@ export class ExportFilterDto {
 
   @IsOptional()
   @Type(() => Date)
+  @IsDate()
   startDate?: Date;
 
   @IsOptional()
   @Type(() => Date)
+  @IsDate()
   endDate?: Date;
 
   @IsOptional()

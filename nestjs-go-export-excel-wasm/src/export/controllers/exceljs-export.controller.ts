@@ -11,6 +11,7 @@ import type { Response } from 'express';
 import { ExportRequestDto } from '../dto/export-request.dto';
 import { ExportComparisonService } from '../services/export-comparison.service';
 import { StreamResponseService } from '../services/stream-response.service';
+import { parseQuickExportQuery } from './export-query-validation';
 
 @Controller('export/exceljs')
 export class ExceljsExportController {
@@ -43,11 +44,13 @@ export class ExceljsExportController {
     @Query('seed') seed = '12345',
     @Res() response: Response,
   ): Promise<void> {
+    const query = parseQuickExportQuery(limit, seed);
+
     await this.download(
       {
-        limit: Number(limit),
-        seed: Number(seed),
-        fileName: `exceljs-quick-${limit}.xlsx`,
+        limit: query.limit,
+        seed: query.seed,
+        fileName: `exceljs-quick-${query.limit}.xlsx`,
       },
       response,
     );
