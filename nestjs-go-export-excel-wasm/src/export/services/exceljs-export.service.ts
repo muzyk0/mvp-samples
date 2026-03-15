@@ -27,18 +27,18 @@ export class ExceljsExportService {
     }));
     worksheet.addRows(dataset.rows);
 
-    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const buffer = await workbook.xlsx.writeBuffer();
     const memoryAfter = process.memoryUsage().heapUsed;
     const durationMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
 
     return {
       variant: 'exceljs',
-      buffer,
+      buffer: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer),
       fileName,
       contentType:
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       durationMs: Number(durationMs.toFixed(2)),
-      sizeBytes: buffer.length,
+      sizeBytes: buffer.byteLength,
       rowCount: dataset.total,
       columnCount: dataset.columns.length,
       memoryDeltaBytes: Math.max(0, memoryAfter - memoryBefore),

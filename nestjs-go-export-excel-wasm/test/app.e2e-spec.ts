@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access */
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -24,6 +24,13 @@ describe('Export comparison app (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     await app.init();
   });
 
@@ -78,7 +85,8 @@ describe('Export comparison app (e2e)', () => {
     expect(response.headers['content-disposition']).toContain(
       'exceljs-check.xlsx',
     );
-    expect(response.body.subarray(0, 2).toString()).toBe('PK');
+    const body = response.body as Buffer;
+    expect(body.subarray(0, 2).toString()).toBe('PK');
   });
 
   it('/export/wasm/download (POST)', async () => {
@@ -95,22 +103,73 @@ describe('Export comparison app (e2e)', () => {
     expect(response.headers['content-disposition']).toContain(
       'wasm-check.xlsx',
     );
-    expect(response.body.subarray(0, 2).toString()).toBe('PK');
+    const body = response.body as Buffer;
+    expect(body.subarray(0, 2).toString()).toBe('PK');
   });
 
-  it(
-    '/export/benchmark/default (GET)',
-    async () => {
-      const response = await request(app.getHttpServer())
-        .get('/export/benchmark/default')
-        .expect(200);
+  it('/export/exceljs/quick rejects invalid query params', async () => {
+    await request(app.getHttpServer())
+      .get('/export/exceljs/quick?limit=Infinity&seed=abc')
+      .expect(400);
+  });
 
-      expect(response.body.request.limit).toBe(2000);
-      expect(response.body.exceljs.variant).toBe('exceljs');
-      expect(response.body.wasm.variant).toBe('wasm');
-      expect(response.body.exceljs.sizeBytes).toBeGreaterThan(0);
-      expect(response.body.wasm.sizeBytes).toBeGreaterThan(0);
-    },
-    20000,
-  );
+  it('/export/wasm/quick rejects excessive limit', async () => {
+    await request(app.getHttpServer())
+      .get('/export/wasm/quick?limit=100001&seed=12345')
+      .expect(400);
+  });
+
+  it('/export/exceljs/download sanitizes file name in content disposition', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/export/exceljs/download')
+      .buffer(true)
+      .parse(binaryParser)
+      .send({
+        limit: 5,
+        seed: 12345,
+        fileName: 'evil\r\nname";malicious.xlsx',
+      })
+      .expect(201);
+
+    expect(response.headers['content-disposition']).toBe(
+      'attachment; filename="evilname-malicious.xlsx"',
+    );
+  });
+
+  it('/export/benchmark/default (GET)', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/export/benchmark/default')
+      .expect(200);
+
+    expect(response.body.request.limit).toBe(2000);
+    expect(response.body.exceljs.variant).toBe('exceljs');
+    expect(response.body.wasm.variant).toBe('wasm');
+    expect(response.body.exceljs.sizeBytes).toBeGreaterThan(0);
+    expect(response.body.wasm.sizeBytes).toBeGreaterThan(0);
+    expect(response.body.exceljs.buffer).toBeUndefined();
+    expect(response.body.wasm.buffer).toBeUndefined();
+    expect(typeof response.body.delta.memoryDeltaBytes).toBe('number');
+  }, 20000);
+
+  it('/export/benchmark omits memory deltas when includeMemory=false', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/export/benchmark')
+      .send({ limit: 20, seed: 12345, includeMemory: false })
+      .expect(201);
+
+    expect(response.body.exceljs.memoryDeltaBytes).toBeUndefined();
+    expect(response.body.wasm.memoryDeltaBytes).toBeUndefined();
+    expect(response.body.delta.memoryDeltaBytes).toBeUndefined();
+  });
+
+  it('/export/exceljs/download rejects invalid filter dates', async () => {
+    await request(app.getHttpServer())
+      .post('/export/exceljs/download')
+      .send({
+        limit: 5,
+        seed: 12345,
+        filters: { startDate: 'not-a-date' },
+      })
+      .expect(400);
+  });
 });

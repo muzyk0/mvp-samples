@@ -6,6 +6,7 @@ import {
 import {
   ExportBenchmarkResult,
   ExportExecutionResult,
+  ExportExecutionSummary,
 } from '../interfaces/export-data.interface';
 import { DataGeneratorService } from './data-generator.service';
 import { ExceljsExportService } from './exceljs-export.service';
@@ -54,23 +55,43 @@ export class ExportComparisonService {
       `benchmark-wasm-${dataset.seed}.xlsx`,
     );
 
+    const includeMemory = options.includeMemory ?? true;
+    const exceljsSummary = this.toBenchmarkSummary(exceljs, includeMemory);
+    const wasmSummary = this.toBenchmarkSummary(wasm, includeMemory);
+
     return {
       request: {
         limit: dataset.total,
         seed: dataset.seed,
         columns: dataset.columns,
       },
-      exceljs,
-      wasm,
+      exceljs: exceljsSummary,
+      wasm: wasmSummary,
       delta: {
         durationMs: Number((wasm.durationMs - exceljs.durationMs).toFixed(2)),
         sizeBytes: wasm.sizeBytes - exceljs.sizeBytes,
-        memoryDeltaBytes:
-          typeof wasm.memoryDeltaBytes === 'number' &&
-          typeof exceljs.memoryDeltaBytes === 'number'
+        memoryDeltaBytes: includeMemory
+          ? typeof wasm.memoryDeltaBytes === 'number' &&
+            typeof exceljs.memoryDeltaBytes === 'number'
             ? wasm.memoryDeltaBytes - exceljs.memoryDeltaBytes
-            : undefined,
+            : undefined
+          : undefined,
       },
+    };
+  }
+
+  private toBenchmarkSummary(
+    result: ExportExecutionResult,
+    includeMemory: boolean,
+  ): ExportExecutionSummary {
+    const { buffer, memoryDeltaBytes, ...summary } = result;
+    void buffer;
+
+    return {
+      ...summary,
+      ...(includeMemory && typeof memoryDeltaBytes === 'number'
+        ? { memoryDeltaBytes }
+        : {}),
     };
   }
 }

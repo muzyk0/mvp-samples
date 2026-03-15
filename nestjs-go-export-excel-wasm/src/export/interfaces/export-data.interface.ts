@@ -39,14 +39,16 @@ export interface ExportExecutionResult {
   memoryDeltaBytes?: number;
 }
 
+export type ExportExecutionSummary = Omit<ExportExecutionResult, 'buffer'>;
+
 export interface ExportBenchmarkResult {
   request: {
     limit: number;
     seed: number;
     columns: string[];
   };
-  exceljs: ExportExecutionResult;
-  wasm: ExportExecutionResult;
+  exceljs: ExportExecutionSummary;
+  wasm: ExportExecutionSummary;
   delta: {
     durationMs: number;
     sizeBytes: number;
