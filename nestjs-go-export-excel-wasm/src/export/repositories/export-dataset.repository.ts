@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Employee, Prisma } from '@prisma/client';
 import { ExportFilterDto, ExportRequestDto } from '../dto/export-request.dto';
-import { ExportDataRow, ExportDataset } from '../interfaces/export-data.interface';
+import {
+  ExportDataRow,
+  ExportDataset,
+} from '../interfaces/export-data.interface';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -32,7 +35,9 @@ export class ExportDatasetRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDataset(options: ExportRequestDto): Promise<ExportDataset> {
-    const columns = options.columns?.length ? options.columns : [...this.defaultColumns];
+    const columns = options.columns?.length
+      ? options.columns
+      : [...this.defaultColumns];
     const limit = options.limit ?? 10_000;
     const totalMatching = await this.prisma.employee.count({
       where: this.buildWhere(options.filters),
@@ -49,8 +54,13 @@ export class ExportDatasetRepository {
 
     const seed = options.seed ?? 12345;
     const explicitOffset = options.offset ?? 0;
-    const startOffset = (explicitOffset + (seed % totalMatching)) % totalMatching;
-    const rows = await this.getWindowedRows(limit, startOffset, options.filters);
+    const startOffset =
+      (explicitOffset + (seed % totalMatching)) % totalMatching;
+    const rows = await this.getWindowedRows(
+      limit,
+      startOffset,
+      options.filters,
+    );
 
     return {
       columns,
@@ -108,7 +118,10 @@ export class ExportDatasetRepository {
     };
   }
 
-  private buildDateRange(startDate?: Date, endDate?: Date): Prisma.DateTimeFilter | undefined {
+  private buildDateRange(
+    startDate?: Date,
+    endDate?: Date,
+  ): Prisma.DateTimeFilter | undefined {
     if (!startDate && !endDate) {
       return undefined;
     }
@@ -119,7 +132,10 @@ export class ExportDatasetRepository {
     };
   }
 
-  private buildNumberRange(min?: number, max?: number): Prisma.IntFilter | undefined {
+  private buildNumberRange(
+    min?: number,
+    max?: number,
+  ): Prisma.IntFilter | undefined {
     if (typeof min !== 'number' && typeof max !== 'number') {
       return undefined;
     }

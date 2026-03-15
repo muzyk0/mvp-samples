@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ExportFilterDto, ExportRequestDto } from '../dto/export-request.dto';
-import { ExportDataRow, ExportDataset } from '../interfaces/export-data.interface';
+import {
+  ExportDataRow,
+  ExportDataset,
+} from '../interfaces/export-data.interface';
 import { ExportDatasetRepository } from '../repositories/export-dataset.repository';
 
 @Injectable()

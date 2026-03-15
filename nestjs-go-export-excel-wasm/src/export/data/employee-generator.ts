@@ -21,21 +21,66 @@ export interface EmployeeSeedRecord {
   isActive: boolean;
 }
 
-const NAMES = ['Алексей', 'Дмитрий', 'Екатерина', 'Михаил', 'Наталья', 'Павел', 'Светлана', 'Татьяна', 'Анна', 'Иван'];
-const SURNAMES = ['Иванов', 'Петров', 'Сидоров', 'Кузнецов', 'Попов', 'Васильев', 'Соколов', 'Михайлов', 'Смирнов', 'Федоров'];
+const NAMES = [
+  'Алексей',
+  'Дмитрий',
+  'Екатерина',
+  'Михаил',
+  'Наталья',
+  'Павел',
+  'Светлана',
+  'Татьяна',
+  'Анна',
+  'Иван',
+];
+const SURNAMES = [
+  'Иванов',
+  'Петров',
+  'Сидоров',
+  'Кузнецов',
+  'Попов',
+  'Васильев',
+  'Соколов',
+  'Михайлов',
+  'Смирнов',
+  'Федоров',
+];
 const PATRONYMICS = ['Александрович', 'Дмитриевич', 'Сергеевич', 'Андреевич'];
-const POSITIONS = ['Junior Developer', 'Middle Developer', 'Senior Developer', 'Team Lead', 'Project Manager'];
-const DEPARTMENTS = ['Разработка', 'Тестирование', 'Аналитика', 'Дизайн', 'Маркетинг'];
+const POSITIONS = [
+  'Junior Developer',
+  'Middle Developer',
+  'Senior Developer',
+  'Team Lead',
+  'Project Manager',
+];
+const DEPARTMENTS = [
+  'Разработка',
+  'Тестирование',
+  'Аналитика',
+  'Дизайн',
+  'Маркетинг',
+];
 const CITIES = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург'];
 const EMPLOYMENT_TYPES = ['Полная занятость', 'Частичная занятость'];
 
-export function buildEmployeeSeedRecord(id: number, rng: () => number): EmployeeSeedRecord {
+export function buildEmployeeSeedRecord(
+  id: number,
+  rng: () => number,
+): EmployeeSeedRecord {
   const firstName = pickOne(NAMES, rng);
   const lastName = pickOne(SURNAMES, rng);
   const baseSalary = pickSalary(rng);
   const bonusSalary = randomInt(rng, 5000, 50000);
-  const birthDate = randomDate(rng, new Date('1975-01-01'), new Date('2000-12-31'));
-  const hireDate = randomDate(rng, new Date('2015-01-01'), new Date('2024-12-31'));
+  const birthDate = randomDate(
+    rng,
+    new Date('1975-01-01'),
+    new Date('2000-12-31'),
+  );
+  const hireDate = randomDate(
+    rng,
+    new Date('2015-01-01'),
+    new Date('2024-12-31'),
+  );
 
   return {
     id,
