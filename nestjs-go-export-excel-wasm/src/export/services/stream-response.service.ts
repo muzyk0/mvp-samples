@@ -1,76 +1,44 @@
 import { Injectable } from '@nestjs/common';
-import { Response } from 'express';
-import { Readable } from 'stream';
+import type { Response } from 'express';
 
 @Injectable()
 export class StreamResponseService {
-    /**
-     * Отправляет Readable stream в HTTP response
-     */
-    async pipeStreamToResponse(
-        readableStream: Readable,
-        response: Response,
-        fileName: string,
-        contentType: string = 'application/octet-stream'
-    ): Promise<void> {
-        // Устанавливаем заголовки
-        response.setHeader('Content-Type', contentType);
-        response.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        response.setHeader('Transfer-Encoding', 'chunked');
+  sendBuffer(
+    response: Response,
+    buffer: Buffer,
+    fileName: string,
+    contentType: string = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ): void {
+    response.setHeader('Content-Type', contentType);
+    const safeFileName = this.sanitizeFileName(fileName);
+    const encodedFileName = encodeURIComponent(fileName || safeFileName);
 
-        // Pipe stream в response
-        readableStream.pipe(response);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`,
+    );
+    response.setHeader('Content-Length', buffer.length);
+    response.setHeader(
+      'Access-Control-Expose-Headers',
+      'Content-Disposition, Content-Length',
+    );
+    response.end(buffer);
+  }
 
-        // Обработка ошибок
-        readableStream.on('error', (error) => {
-            console.error('Stream error:', error);
-            if (!response.headersSent) {
-                response.status(500).json({ error: 'Stream error', message: error.message });
-            } else {
-                response.end();
-            }
-        });
+  private sanitizeFileName(fileName: string): string {
+    const withoutUnsafeChars = Array.from(fileName.normalize('NFKC'))
+      .filter((char) => {
+        const code = char.charCodeAt(0);
+        return code >= 0x20 && code !== 0x7f;
+      })
+      .join('');
 
-        // Завершение
-        readableStream.on('end', () => {
-            response.end();
-        });
-    }
+    const normalized = withoutUnsafeChars
+      .replace(/[\r\n"]/g, '')
+      .replace(/[\\/]+/g, '-')
+      .replace(/;+|,+/g, '-')
+      .trim();
 
-    /**
-     * Создает прогрессивный stream с информацией о прогрессе
-     */
-    createProgressStream(
-        dataStream: AsyncGenerator<any>,
-        totalItems: number,
-        onProgress?: (percentage: number) => void
-    ): Readable {
-        let processed = 0;
-
-        return new Readable({
-            objectMode: true,
-            async read() {
-                try {
-                    const { value, done } = await dataStream.next();
-
-                    if (done) {
-                        this.push(null); // Завершаем stream
-                        return;
-                    }
-
-                    processed += Array.isArray(value) ? value.length : 1;
-
-                    // Вызываем callback прогресса
-                    if (onProgress && totalItems > 0) {
-                        const percentage = Math.round((processed / totalItems) * 100);
-                        onProgress(percentage);
-                    }
-
-                    this.push(value);
-                } catch (error) {
-                    this.destroy(error);
-                }
-            }
-        });
-    }
+    return normalized || 'export.xlsx';
+  }
 }

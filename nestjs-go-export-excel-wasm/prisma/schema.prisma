@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Employee {
+  id                    Int      @id
+  firstName             String
+  lastName              String
+  patronymic            String
+  workEmail             String   @unique
+  mobilePhone           String
+  position              String
+  department            String
+  city                  String
+  birthDate             DateTime
+  age                   Int
+  hireDate              DateTime
+  tenureYears           Int
+  employmentType        String
+  isRemote              Boolean
+  baseSalary            Int
+  bonusSalary           Int
+  totalSalary           Int
+  performanceRating     Float
+  isActive              Boolean
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([department])
+  @@index([position])
+  @@index([hireDate])
+  @@index([totalSalary])
+  @@index([isActive])
+}

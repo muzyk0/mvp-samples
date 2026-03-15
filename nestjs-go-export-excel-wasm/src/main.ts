@@ -1,31 +1,75 @@
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { Logger } from '@nestjs/common';
 
-async function bootstrap() {
-    const logger = new Logger('Bootstrap');
-    const app = await NestFactory.create(AppModule);
+export type CorsOriginDelegate = (
+  origin: string | undefined,
+  callback: (error: Error | null, allow?: boolean) => void,
+) => void;
 
-    // Глобальная валидация
-    app.useGlobalPipes(new ValidationPipe({
-        whitelist: true,
-        transform: true,
-        forbidNonWhitelisted: true,
-    }));
+export function createCorsOriginDelegate(
+  allowedOrigins: string[],
+  logger: Pick<Logger, 'warn'>,
+): CorsOriginDelegate {
+  return (
+    origin: string | undefined,
+    callback: (error: Error | null, allow?: boolean) => void,
+  ) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
 
-    // Включаем CORS
-    app.enableCors({
-        origin: true,
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-        credentials: true,
-    });
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
 
-    const port = process.env.PORT || 3000;
-    await app.listen(port);
-
-    logger.log(`Приложение запущено на порту ${port}`);
-    logger.log(`Эндпоинт экспорта: http://localhost:${port}/export`);
+    logger.warn(`Rejected CORS request from origin: ${origin}`);
+    callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
+  };
 }
 
-bootstrap();
+export async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+  const app = await NestFactory.create(AppModule);
+
+  app.enableShutdownHooks();
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  if (allowedOrigins.length === 0) {
+    logger.warn(
+      'ALLOWED_ORIGINS is empty. Browser requests with an Origin header will be rejected while non-browser requests without Origin remain allowed.',
+    );
+  } else {
+    logger.log(`Configured CORS origins: ${allowedOrigins.join(', ')}`);
+  }
+
+  app.enableCors({
+    origin: createCorsOriginDelegate(allowedOrigins, logger),
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+
+  logger.log(`Приложение запущено на порту ${port}`);
+  logger.log(`Эндпоинт экспорта: http://localhost:${port}/export`);
+}
+
+if (require.main === module) {
+  void bootstrap();
+}

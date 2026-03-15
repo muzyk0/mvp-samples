@@ -1,156 +1,106 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { Response } from 'express';
-import { Readable } from 'stream';
-import { WasmExcelService } from './wasm-excel.service';
+import {
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import {
+  DEFAULT_EXPORT_LIMIT,
+  MAX_EXPORT_LIMIT,
+  ExportRequestDto,
+} from '../dto/export-request.dto';
+import { ExportData } from '../interfaces/export-data.interface';
 import { DataGeneratorService } from './data-generator.service';
-import { ExportRequestDto, ExportFilterDto } from '../dto/export-request.dto';
-import { ExportData, WasmProgress } from '../interfaces/export-data.interface';
+import { ExportComparisonService } from './export-comparison.service';
+import { StreamResponseService } from './stream-response.service';
 
 @Injectable()
 export class ExcelExportService {
-    private readonly logger = new Logger(ExcelExportService.name);
+  private readonly logger = new Logger(ExcelExportService.name);
 
-    constructor(
-        private readonly wasmExcelService: WasmExcelService,
-        private readonly dataGeneratorService: DataGeneratorService,
-    ) {}
+  constructor(
+    private readonly exportComparisonService: ExportComparisonService,
+    private readonly dataGeneratorService: DataGeneratorService,
+    private readonly streamResponseService: StreamResponseService,
+  ) {}
 
-    async exportToResponse(
-        response: Response,
-        options: ExportRequestDto
-    ): Promise<void> {
-        this.logger.log(`Начало экспорта в Excel: ${JSON.stringify(options)}`);
+  async exportToResponse(
+    response: Response,
+    options: ExportRequestDto,
+  ): Promise<void> {
+    try {
+      const result = await this.exportComparisonService.exportWithWasm(options);
+      this.streamResponseService.sendBuffer(
+        response,
+        result.buffer,
+        result.fileName,
+        result.contentType,
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
 
-        const startTime = Date.now();
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `WASM export failed: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(`Ошибка при экспорте: ${message}`);
+    }
+  }
 
-        try {
-            // Устанавливаем заголовки ответа
-            response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            response.setHeader('Content-Disposition', `attachment; filename="${options.fileName}"`);
-            response.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+  async exportToBuffer(
+    options: ExportRequestDto,
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const result = await this.exportComparisonService.exportWithWasm(options);
+    return { buffer: result.buffer, fileName: result.fileName };
+  }
 
-            // Получаем колонки для экспорта
-            const columns = options.columns || this.dataGeneratorService.getColumnNames();
+  async getExportData(options: ExportRequestDto): Promise<ExportData> {
+    const dataset = await this.dataGeneratorService.getDataset(options);
+    return {
+      rows: dataset.rows,
+      total: dataset.total,
+      columns: dataset.columns,
+    };
+  }
 
-            // Создаем генератор данных
-            const dataStream = this.dataGeneratorService.generateExportDataStream(
-                options.filters,
-                options.limit,
-                500 // batch size
-            );
+  validateExportOptions(
+    options: ExportRequestDto,
+  ): Promise<{ valid: boolean; errors: string[] }> {
+    const errors: string[] = [];
 
-            // Настраиваем callback для прогресса
-            const onProgress = (progress: WasmProgress) => {
-                this.logger.debug(`Прогресс экспорта: ${progress.percentage}%`);
-                // Здесь можно отправлять прогресс через WebSocket или сохранять в базу
-            };
+    const effectiveLimit = options.limit ?? DEFAULT_EXPORT_LIMIT;
 
-            // Получаем поток с данными Excel из WASM
-            const excelStream = await this.wasmExcelService.exportToStream(
-                dataStream,
-                columns,
-                onProgress
-            );
-
-            // Отправляем поток клиенту
-            excelStream.pipe(response);
-
-            // Обработка завершения
-            excelStream.on('end', () => {
-                const duration = Date.now() - startTime;
-                this.logger.log(`Экспорт завершен за ${duration}ms`);
-                response.end();
-            });
-
-            excelStream.on('error', (error) => {
-                this.logger.error(`Ошибка при экспорте: ${error.message}`);
-                response.status(500).json({
-                    error: 'Ошибка при экспорте',
-                    message: error.message
-                });
-            });
-
-        } catch (error) {
-            this.logger.error(`Ошибка в exportToResponse: ${error.message}`);
-            throw new BadRequestException(`Ошибка при экспорте: ${error.message}`);
-        }
+    if (effectiveLimit > MAX_EXPORT_LIMIT) {
+      errors.push(`Лимит не может превышать ${MAX_EXPORT_LIMIT} записей`);
     }
 
-    async exportToBuffer(options: ExportRequestDto): Promise<{ buffer: Buffer; fileName: string }> {
-        this.logger.log(`Начало экспорта в буфер: ${JSON.stringify(options)}`);
-
-        const startTime = Date.now();
-
-        try {
-            // Получаем колонки для экспорта
-            const columns = options.columns || this.dataGeneratorService.getColumnNames();
-
-            // Создаем генератор данных
-            const dataStream = this.dataGeneratorService.generateExportDataStream(
-                options.filters,
-                options.limit,
-                500 // batch size
-            );
-
-            // Экспортируем в буфер через WASM
-            const { buffer } = await this.wasmExcelService.exportToBuffer(
-                dataStream,
-                columns
-            );
-
-            const duration = Date.now() - startTime;
-            this.logger.log(`Экспорт в буфер завершен за ${duration}ms, размер: ${buffer.length} байт`);
-
-            return {
-                buffer,
-                fileName: options.fileName!
-            };
-        } catch (error) {
-            this.logger.error(`Ошибка при экспорте в буфер: ${error.message}`);
-            throw new BadRequestException(`Ошибка при экспорте: ${error.message}`);
-        }
+    if (effectiveLimit <= 0) {
+      errors.push('Лимит должен быть больше 0');
     }
 
-    async getExportData(options: ExportRequestDto): Promise<ExportData> {
-        this.logger.log(`Получение данных для экспорта: ${JSON.stringify(options)}`);
-
-        try {
-            // В реальном приложении здесь будет запрос к другому сервису
-            return await this.dataGeneratorService.generateExportData(
-                options.filters,
-                options.limit
-            );
-        } catch (error) {
-            this.logger.error(`Ошибка при получении данных: ${error.message}`);
-            throw new BadRequestException(`Ошибка при получении данных: ${error.message}`);
-        }
+    if (
+      options.filters?.startDate &&
+      options.filters?.endDate &&
+      options.filters.startDate > options.filters.endDate
+    ) {
+      errors.push('Дата начала не может быть позже даты окончания');
     }
 
-    async validateExportOptions(options: ExportRequestDto): Promise<{ valid: boolean; errors: string[] }> {
-        const errors: string[] = [];
-
-        // Проверка лимита
-        if (options.limit && options.limit > 100000) {
-            errors.push('Лимит не может превышать 100000 записей');
-        }
-
-        // Проверка дат
-        if (options.filters?.startDate && options.filters?.endDate) {
-            if (options.filters.startDate > options.filters.endDate) {
-                errors.push('Дата начала не может быть позже даты окончания');
-            }
-        }
-
-        // Проверка зарплаты
-        if (options.filters?.minSalary && options.filters?.maxSalary) {
-            if (options.filters.minSalary > options.filters.maxSalary) {
-                errors.push('Минимальная зарплата не может быть больше максимальной');
-            }
-        }
-
-        return {
-            valid: errors.length === 0,
-            errors
-        };
+    if (
+      typeof options.filters?.minSalary === 'number' &&
+      typeof options.filters?.maxSalary === 'number' &&
+      options.filters.minSalary > options.filters.maxSalary
+    ) {
+      errors.push('Минимальная зарплата не может быть больше максимальной');
     }
+
+    return Promise.resolve({
+      valid: errors.length === 0,
+      errors,
+    });
+  }
 }

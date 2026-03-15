@@ -1,295 +1,390 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { readFileSync } from 'fs';
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
+import {
+  BeforeApplicationShutdown,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { existsSync, promises as fs } from 'fs';
 import { join } from 'path';
 import { Readable } from 'stream';
-import { WasmChunkCallback, WasmExportResult } from '../interfaces/wasm-callback.interface';
-import { WasmProgress } from '../interfaces/export-data.interface';
+import {
+  ExportDataset,
+  ExportExecutionResult,
+  WasmProgress,
+} from '../interfaces/export-data.interface';
+import { WasmChunkCallback } from '../interfaces/wasm-callback.interface';
 
-declare const Go: any;
+declare const Go: new () => {
+  importObject: WebAssembly.Imports;
+  run(instance: WebAssembly.Instance): Promise<void>;
+};
+
+type ExportJob = () => Promise<ExportExecutionResult>;
+type RuntimeHandle = {
+  waitUntilReady: () => Promise<void>;
+  dispose: () => void;
+};
 
 @Injectable()
-export class WasmExcelService implements OnModuleInit, OnModuleDestroy {
-    private readonly logger = new Logger(WasmExcelService.name);
-    private wasmBuffer: Buffer;
-    private goInstance: any;
-    private isInitialized = false;
-    private wasmModulePath = join(__dirname, '../../../excel-streamer/excel_bridge.wasm');
-    private wasmExecPath = join(__dirname, '../../../excel-streamer/wasm_exec.js');
+export class WasmExcelService
+  implements OnModuleDestroy, BeforeApplicationShutdown
+{
+  private readonly logger = new Logger(WasmExcelService.name);
+  private readonly wasmAssetsDir = this.resolveWasmAssetsDir();
+  private readonly wasmModulePath = join(
+    this.wasmAssetsDir,
+    'excel_bridge.wasm',
+  );
+  private readonly wasmExecPath = join(this.wasmAssetsDir, 'wasm_exec.js');
+  private wasmBuffer?: Buffer;
+  private wasmExecLoaded = false;
+  private wasmLoadPromise?: Promise<void>;
+  private queue: Promise<void> = Promise.resolve();
+  private queueDepth = 0;
 
-    constructor() {
-        this.loadWasmFiles();
+  async initializeExport(headers: string[]): Promise<string[]> {
+    if (!Array.isArray(headers) || headers.length === 0) {
+      throw new ServiceUnavailableException('WASM export headers are required');
     }
 
-    async onModuleInit() {
-        this.logger.log('Инициализация WASM сервиса');
+    await this.ensureWasmLoaded();
+    return [...headers];
+  }
+
+  async exportToStream(
+    dataGenerator: AsyncGenerator<Record<string, any>[]>,
+    headers: string[],
+    onProgress?: (progress: WasmProgress) => void,
+  ): Promise<Readable> {
+    const rows: Record<string, any>[] = [];
+    for await (const batch of dataGenerator) {
+      rows.push(...batch);
     }
 
-    onModuleDestroy() {
-        this.cleanup();
-    }
+    const result = await this.exportDataset(
+      {
+        columns: headers,
+        rows,
+        total: rows.length,
+        seed: 0,
+      },
+      'wasm-export.xlsx',
+      onProgress,
+    );
 
-    private loadWasmFiles(): void {
-        try {
-            // Загружаем wasm_exec.js
-            require(this.wasmExecPath);
+    return Readable.from(result.buffer);
+  }
 
-            // Загружаем WASM бинарник
-            this.wasmBuffer = readFileSync(this.wasmModulePath);
+  async exportDataset(
+    dataset: ExportDataset,
+    fileName: string,
+    onProgress?: (progress: WasmProgress) => void,
+  ): Promise<ExportExecutionResult> {
+    const initializedHeaders = await this.initializeExport(dataset.columns);
 
-            this.logger.log('WASM файлы загружены');
-        } catch (error) {
-            this.logger.error(`Ошибка загрузки WASM файлов: ${error.message}`);
-            throw error;
-        }
-    }
+    return this.enqueue(async () => {
+      const startTime = process.hrtime.bigint();
+      const memoryBefore = process.memoryUsage().heapUsed;
+      const chunks: Buffer[] = [];
 
-    async initializeExport(headers: string[]): Promise<boolean> {
-        try {
-            if (!this.wasmBuffer) {
-                throw new Error('WASM не инициализирован');
+      const runtime = await this.createRuntime();
+
+      try {
+        await runtime.waitUntilReady();
+
+        const callback: WasmChunkCallback = (chunk, status) => {
+          if (status === 'INIT_OK' || status === 'COMPLETE') {
+            return;
+          }
+
+          if (status.startsWith('CHUNK:')) {
+            if (chunk && chunk.length > 0) {
+              chunks.push(Buffer.from(chunk));
             }
 
-            // Создаем экземпляр Go
-            this.goInstance = new Go();
-
-            // Компилируем и инстанцируем WASM модуль
-            // @ts-expect-error
-            const { instance } = await WebAssembly.instantiate(this.wasmBuffer, this.goInstance.importObject);
-
-            // Запускаем Go runtime в фоновом режиме
-            this.goInstance.run(instance).catch((err: Error) => {
-                this.logger.error(`Ошибка в Go runtime: ${err.message}`);
-            });
-
-            // Ждем инициализации WASM модуля
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Проверяем экспортированные функции
-            if (typeof (global as any).goInitExport === 'undefined') {
-                throw new Error('Go функции не экспортированы');
+            const progress = this.parseProgressStatus(status);
+            if (progress && onProgress) {
+              onProgress(progress);
             }
 
-            this.isInitialized = true;
-            this.logger.log(`WASM экспорт инициализирован с ${headers.length} колонками`);
+            return;
+          }
 
-            return true;
-        } catch (error) {
-            this.logger.error(`Ошибка инициализации WASM: ${error.message}`);
-            this.isInitialized = false;
-            return false;
-        }
-    }
-
-    async exportToStream(
-        dataGenerator: AsyncGenerator<Record<string, any>[]>,
-        headers: string[],
-        onProgress?: (progress: WasmProgress) => void
-    ): Promise<Readable> {
-        const startTime = Date.now();
-        let exportedRows = 0;
-
-        // Инициализируем WASM если еще не инициализирован
-        if (!this.isInitialized) {
-            const initialized = await this.initializeExport(headers);
-            if (!initialized) {
-                throw new Error('Не удалось инициализировать WASM экспорт');
-            }
-        }
-
-        // Создаем Readable stream для отправки данных клиенту
-        const readableStream = new Readable({
-            read() {}
-        });
-
-        // Callback для получения чанков от WASM
-        const chunkCallback: WasmChunkCallback = (chunk: Uint8Array, status: string) => {
-            if (status === 'INIT_OK') {
-                this.logger.debug('WASM инициализирован успешно');
-                return;
-            }
-
-            if (status === 'COMPLETE') {
-                const duration = Date.now() - startTime;
-                this.logger.log(`Экспорт завершен: ${exportedRows} строк, время: ${duration}ms`);
-                readableStream.push(null);
-                return;
-            }
-
-            if (status && status.startsWith('CHUNK:')) {
-                const parts = status.split(':');
-                const currentChunk = parseInt(parts[1]);
-                const totalChunks = parseInt(parts[2]);
-                const fileSize = parseInt(parts[3]);
-
-                // Отправляем чанк в поток
-                if (chunk && chunk.length > 0) {
-                    readableStream.push(Buffer.from(chunk));
-                }
-
-                // Вызываем callback прогресса
-                if (onProgress && totalChunks > 0) {
-                    const percentage = Math.round((currentChunk / totalChunks) * 100);
-                    onProgress({
-                        current: currentChunk,
-                        total: totalChunks,
-                        percentage
-                    });
-
-                    // Логируем каждые 10%
-                    if (percentage % 10 === 0) {
-                        this.logger.debug(`Прогресс экспорта: ${percentage}%`);
-                    }
-                }
-                return;
-            }
-
-            if (status && status !== '' && status !== 'INIT_OK') {
-                const error = new Error(`Ошибка WASM: ${status}`);
-                this.logger.error(error.message);
-                readableStream.destroy(error);
-                return;
-            }
+          throw new Error(status);
         };
 
-        // Экспортируем callback в глобальную область
-        (global as any).receiveChunk = chunkCallback;
+        const initResult = (global as Record<string, any>).goInitExport(
+          initializedHeaders,
+          callback,
+        );
+        this.assertGoResult(initResult, 'Ошибка инициализации WASM');
 
-        try {
-            // Инициализируем экспорт в WASM
-            this.logger.debug(`Инициализация экспорта с ${headers.length} колонками`);
-            const initResult = (global as any).goInitExport(headers, (global as any).receiveChunk);
-
-            if (initResult && initResult.toString().includes('Ошибка')) {
-                throw new Error(`Ошибка инициализации WASM: ${initResult}`);
-            }
-
-            // Ждем завершения инициализации
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Перебираем данные и отправляем в WASM как объекты
-            for await (const batch of dataGenerator) {
-                exportedRows += batch.length;
-
-                // Конвертируем batch в JSON строку (массив объектов)
-                const jsonData = JSON.stringify(batch);
-
-                // Отправляем данные в WASM
-                const result = (global as any).goWriteRows(jsonData);
-
-                if (result && result.toString().includes('Ошибка')) {
-                    throw new Error(`Ошибка записи в WASM: ${result}`);
-                }
-
-                // Логирование прогресса
-                if (exportedRows % 1000 === 0) {
-                    this.logger.debug(`Экспортировано ${exportedRows} строк`);
-                }
-
-                // Небольшая пауза для асинхронной обработки
-                await new Promise(resolve => setTimeout(resolve, 10));
-            }
-
-            // Завершаем экспорт и получаем файл
-            this.logger.debug('Завершение экспорта...');
-            const finalizeResult = (global as any).goFinalizeExport();
-
-            if (finalizeResult && finalizeResult.toString().includes('Ошибка')) {
-                throw new Error(`Ошибка завершения экспорта: ${finalizeResult}`);
-            }
-
-            // Ждем завершения отправки файла
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            return readableStream;
-        } catch (error) {
-            this.logger.error(`Ошибка при экспорте: ${error.message}`);
-            readableStream.destroy(error);
-            throw error;
+        const batchSize = 500;
+        for (let index = 0; index < dataset.rows.length; index += batchSize) {
+          const batch = dataset.rows.slice(index, index + batchSize);
+          const writeResult = (global as Record<string, any>).goWriteRows(
+            JSON.stringify(batch),
+          );
+          this.assertGoResult(writeResult, 'Ошибка записи в WASM');
         }
-    }
 
-    async exportToBuffer(
-        dataGenerator: AsyncGenerator<Record<string, any>[]>,
-        headers: string[]
-    ): Promise<{ buffer: Buffer; result: WasmExportResult }> {
-        const chunks: Buffer[] = [];
-        let totalSize = 0;
+        const finalizeResult = (
+          global as Record<string, any>
+        ).goFinalizeExport();
+        this.assertGoResult(finalizeResult, 'Ошибка завершения WASM экспорта');
 
-        const stream = await this.exportToStream(dataGenerator, headers, (progress) => {
-            this.logger.debug(`Прогресс: ${progress.current}/${progress.total} (${progress.percentage}%)`);
-        });
+        const buffer = Buffer.concat(chunks);
+        const memoryAfter = process.memoryUsage().heapUsed;
+        const durationMs =
+          Number(process.hrtime.bigint() - startTime) / 1_000_000;
 
-        return new Promise((resolve, reject) => {
-            stream.on('data', (chunk: Buffer) => {
-                chunks.push(chunk);
-                totalSize += chunk.length;
-            });
-
-            stream.on('end', () => {
-                const buffer = Buffer.concat(chunks);
-                const result: WasmExportResult = {
-                    success: true,
-                    size: totalSize,
-                    duration: 0
-                };
-                resolve({ buffer, result });
-            });
-
-            stream.on('error', (error) => {
-                reject(error);
-            });
-        });
-    }
-
-    async testExport(headers: string[], sampleData: Record<string, any>[]): Promise<boolean> {
-        try {
-            if (!this.isInitialized) {
-                await this.initializeExport(headers);
-            }
-
-            // Экспортируем callback для получения статуса
-            let testSuccess = false;
-            (global as any).testCallback = (chunk: Uint8Array, status: string) => {
-                if (status === 'INIT_OK') {
-                    this.logger.debug('Тест: WASM инициализирован');
-                } else if (status === 'COMPLETE') {
-                    testSuccess = true;
-                    this.logger.debug('Тест: экспорт завершен успешно');
-                }
-            };
-
-            // Инициализируем
-            (global as any).goInitExport(headers.slice(0, 5), (global as any).testCallback);
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Записываем тестовые данные
-            const result = (global as any).goWriteRows(JSON.stringify(sampleData));
-
-            if (result && result.toString().includes('Ошибка')) {
-                this.logger.error(`Тестовая запись не удалась: ${result}`);
-                return false;
-            }
-
-            // Завершаем
-            (global as any).goFinalizeExport();
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            return testSuccess;
-        } catch (error) {
-            this.logger.error(`Тест экспорта не удался: ${error.message}`);
-            return false;
-        }
-    }
-
-    private cleanup(): void {
-        this.isInitialized = false;
-        this.goInstance = null;
-        this.logger.log('WASM ресурсы очищены');
-    }
-
-    getStatus(): { isInitialized: boolean } {
         return {
-            isInitialized: this.isInitialized
+          variant: 'wasm',
+          buffer,
+          fileName,
+          contentType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          durationMs: Number(durationMs.toFixed(2)),
+          sizeBytes: buffer.length,
+          rowCount: dataset.total,
+          columnCount: dataset.columns.length,
+          memoryDeltaBytes: Math.max(0, memoryAfter - memoryBefore),
         };
+      } finally {
+        runtime.dispose();
+      }
+    });
+  }
+
+  async testExport(
+    headers: string[],
+    sampleData: Record<string, any>[],
+  ): Promise<boolean> {
+    const dataset = {
+      columns: headers,
+      rows: sampleData,
+      total: sampleData.length,
+      seed: 0,
+    };
+
+    const result = await this.exportDataset(dataset, 'wasm-test.xlsx');
+    return result.sizeBytes > 0;
+  }
+
+  getStatus(): { queued: boolean; hasBinary: boolean } {
+    return {
+      queued: this.queueDepth > 0,
+      hasBinary:
+        Boolean(this.wasmBuffer?.length) || existsSync(this.wasmModulePath),
+    };
+  }
+
+  async beforeApplicationShutdown(): Promise<void> {
+    try {
+      await Promise.race([
+        this.queue,
+        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+      ]);
+    } finally {
+      this.cleanupGlobals();
     }
+  }
+
+  onModuleDestroy(): void {
+    this.cleanupGlobals();
+  }
+
+  private async ensureWasmLoaded(): Promise<void> {
+    if (this.wasmBuffer && this.wasmExecLoaded) {
+      return;
+    }
+
+    if (!this.wasmLoadPromise) {
+      this.wasmLoadPromise = this.loadWasmAssets().finally(() => {
+        this.wasmLoadPromise = undefined;
+      });
+    }
+
+    return this.wasmLoadPromise;
+  }
+
+  private async loadWasmAssets(): Promise<void> {
+    if (!existsSync(this.wasmExecPath) || !existsSync(this.wasmModulePath)) {
+      throw new ServiceUnavailableException(
+        `WASM assets are not available yet. Expected files in ${this.wasmAssetsDir}`,
+      );
+    }
+
+    try {
+      if (!this.wasmExecLoaded) {
+        require(this.wasmExecPath);
+        this.wasmExecLoaded = true;
+      }
+
+      this.wasmBuffer = await fs.readFile(this.wasmModulePath);
+    } catch (error) {
+      this.logger.error(
+        `Failed to load WASM assets from ${this.wasmAssetsDir}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      this.wasmBuffer = undefined;
+      this.wasmExecLoaded = false;
+      throw new ServiceUnavailableException(
+        'WASM exporter is unavailable. Build/copy excel-streamer assets and try again.',
+      );
+    }
+  }
+
+  private async enqueue(job: ExportJob): Promise<ExportExecutionResult> {
+    this.queueDepth += 1;
+    const previous = this.queue;
+    let release!: () => void;
+    this.queue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    await previous;
+
+    try {
+      return await job();
+    } finally {
+      this.queueDepth = Math.max(0, this.queueDepth - 1);
+      release();
+    }
+  }
+
+  private assertGoResult(result: unknown, prefix: string): void {
+    if (typeof result === 'string' && result.length > 0) {
+      throw new Error(`${prefix}: ${result}`);
+    }
+  }
+
+  private parseProgressStatus(status: string): WasmProgress | null {
+    const parts = status.split(':');
+    if (parts.length < 3) {
+      this.logger.warn(`Ignoring malformed WASM progress status: ${status}`);
+      return null;
+    }
+
+    const current = Number(parts[1]);
+    const total = Number(parts[2]);
+
+    if (
+      !Number.isFinite(current) ||
+      !Number.isFinite(total) ||
+      current < 0 ||
+      total <= 0 ||
+      current > total
+    ) {
+      this.logger.warn(`Ignoring invalid WASM progress numbers: ${status}`);
+      return null;
+    }
+
+    return {
+      current,
+      total,
+      percentage: Math.round((current / total) * 100),
+    };
+  }
+
+  private async createRuntime(): Promise<RuntimeHandle> {
+    if (!this.wasmBuffer) {
+      throw new ServiceUnavailableException('WASM binary is not loaded');
+    }
+
+    const go = new Go();
+    const instantiateResult = (await WebAssembly.instantiate(
+      this.wasmBuffer as unknown as BufferSource,
+      go.importObject,
+    )) as unknown;
+    const wasmInstance =
+      (instantiateResult as { instance?: WebAssembly.Instance }).instance ??
+      (instantiateResult as WebAssembly.Instance);
+
+    let disposed = false;
+    const readyPromise = new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let pollTimer: ReturnType<typeof setTimeout> | null = null;
+      const finish = (callback: () => void) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        clearTimeout(timeout);
+        if (pollTimer) {
+          clearTimeout(pollTimer);
+          pollTimer = null;
+        }
+        callback();
+      };
+      const timeout = setTimeout(() => {
+        finish(() => reject(new Error('WASM runtime init timeout')));
+      }, 5000);
+      const checkReady = () => {
+        if (settled || disposed) {
+          return;
+        }
+
+        if (
+          typeof (global as Record<string, any>).goInitExport === 'function'
+        ) {
+          finish(resolve);
+          return;
+        }
+
+        pollTimer = setTimeout(checkReady, 25);
+      };
+      checkReady();
+    });
+
+    void go.run(wasmInstance).catch((error: Error) => {
+      this.logger.error(`Go runtime failed: ${error.message}`);
+    });
+
+    return {
+      waitUntilReady: () => readyPromise,
+      dispose: () => {
+        disposed = true;
+        this.cleanupGlobals();
+      },
+    };
+  }
+
+  private cleanupGlobals(): void {
+    delete (global as Record<string, any>).goInitExport;
+    delete (global as Record<string, any>).goWriteRows;
+    delete (global as Record<string, any>).goFinalizeExport;
+    delete (global as Record<string, any>).goSetChunkSize;
+    delete (global as Record<string, any>).goGetProgress;
+  }
+
+  private resolveWasmAssetsDir(): string {
+    const candidates = [
+      join(process.cwd(), 'dist', 'excel-streamer'),
+      join(process.cwd(), 'excel-streamer'),
+      join(
+        process.cwd(),
+        'nestjs-go-export-excel-wasm',
+        'dist',
+        'excel-streamer',
+      ),
+      join(process.cwd(), 'nestjs-go-export-excel-wasm', 'excel-streamer'),
+      join(__dirname, '../../../excel-streamer'),
+      join(__dirname, '../../../../excel-streamer'),
+    ];
+
+    for (const candidate of candidates) {
+      if (
+        existsSync(join(candidate, 'excel_bridge.wasm')) &&
+        existsSync(join(candidate, 'wasm_exec.js'))
+      ) {
+        return candidate;
+      }
+    }
+
+    return candidates[0];
+  }
 }

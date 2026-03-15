@@ -8,7 +8,7 @@ go mod tidy
 GOOS=js GOARCH=wasm go build -o excel_bridge.wasm excel_bridge.go
 
 # 4. Скопируйте wasm_exec.js (если еще нет)
-cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .
+cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
 
 # 5. Установите Node.js зависимости (если нужно проверять Excel)
 npm install adm-zip  # опционально
