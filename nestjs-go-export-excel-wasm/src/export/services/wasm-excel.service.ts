@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import { existsSync, readFileSync } from 'fs';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { existsSync, promises as fs } from 'fs';
 import { join } from 'path';
 import { Readable } from 'stream';
 import {
@@ -16,6 +21,10 @@ declare const Go: new () => {
 };
 
 type ExportJob = () => Promise<ExportExecutionResult>;
+type RuntimeHandle = {
+  waitUntilReady: () => Promise<void>;
+  dispose: () => void;
+};
 
 @Injectable()
 export class WasmExcelService implements OnModuleDestroy {
@@ -26,14 +35,11 @@ export class WasmExcelService implements OnModuleDestroy {
     'excel_bridge.wasm',
   );
   private readonly wasmExecPath = join(this.wasmAssetsDir, 'wasm_exec.js');
-  private readonly wasmBuffer: Buffer;
+  private wasmBuffer?: Buffer;
+  private wasmExecLoaded = false;
+  private wasmLoadPromise?: Promise<void>;
   private queue: Promise<void> = Promise.resolve();
   private queueDepth = 0;
-
-  constructor() {
-    require(this.wasmExecPath);
-    this.wasmBuffer = readFileSync(this.wasmModulePath);
-  }
 
   initializeExport(headers: string[]): Promise<boolean> {
     void headers;
@@ -69,6 +75,8 @@ export class WasmExcelService implements OnModuleDestroy {
     fileName: string,
     onProgress?: (progress: WasmProgress) => void,
   ): Promise<ExportExecutionResult> {
+    await this.ensureWasmLoaded();
+
     return this.enqueue(async () => {
       const startTime = process.hrtime.bigint();
       const memoryBefore = process.memoryUsage().heapUsed;
@@ -161,12 +169,54 @@ export class WasmExcelService implements OnModuleDestroy {
   getStatus(): { queued: boolean; hasBinary: boolean } {
     return {
       queued: this.queueDepth > 0,
-      hasBinary: Boolean(this.wasmBuffer?.length),
+      hasBinary:
+        Boolean(this.wasmBuffer?.length) || existsSync(this.wasmModulePath),
     };
   }
 
   onModuleDestroy(): void {
     this.cleanupGlobals();
+  }
+
+  private async ensureWasmLoaded(): Promise<void> {
+    if (this.wasmBuffer && this.wasmExecLoaded) {
+      return;
+    }
+
+    if (!this.wasmLoadPromise) {
+      this.wasmLoadPromise = this.loadWasmAssets().finally(() => {
+        this.wasmLoadPromise = undefined;
+      });
+    }
+
+    return this.wasmLoadPromise;
+  }
+
+  private async loadWasmAssets(): Promise<void> {
+    if (!existsSync(this.wasmExecPath) || !existsSync(this.wasmModulePath)) {
+      throw new ServiceUnavailableException(
+        `WASM assets are not available yet. Expected files in ${this.wasmAssetsDir}`,
+      );
+    }
+
+    try {
+      if (!this.wasmExecLoaded) {
+        require(this.wasmExecPath);
+        this.wasmExecLoaded = true;
+      }
+
+      this.wasmBuffer = await fs.readFile(this.wasmModulePath);
+    } catch (error) {
+      this.logger.error(
+        `Failed to load WASM assets from ${this.wasmAssetsDir}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      this.wasmBuffer = undefined;
+      this.wasmExecLoaded = false;
+      throw new ServiceUnavailableException(
+        'WASM exporter is unavailable. Build/copy excel-streamer assets and try again.',
+      );
+    }
   }
 
   private async enqueue(job: ExportJob): Promise<ExportExecutionResult> {
@@ -221,10 +271,11 @@ export class WasmExcelService implements OnModuleDestroy {
     };
   }
 
-  private async createRuntime(): Promise<{
-    waitUntilReady: () => Promise<void>;
-    dispose: () => void;
-  }> {
+  private async createRuntime(): Promise<RuntimeHandle> {
+    if (!this.wasmBuffer) {
+      throw new ServiceUnavailableException('WASM binary is not loaded');
+    }
+
     const go = new Go();
     const instantiateResult = (await WebAssembly.instantiate(
       this.wasmBuffer as unknown as BufferSource,
@@ -233,30 +284,36 @@ export class WasmExcelService implements OnModuleDestroy {
     const wasmInstance =
       (instantiateResult as { instance?: WebAssembly.Instance }).instance ??
       (instantiateResult as WebAssembly.Instance);
+
+    let disposed = false;
     const readyPromise = new Promise<void>((resolve, reject) => {
       let settled = false;
       let pollTimer: ReturnType<typeof setTimeout> | null = null;
-      const timeout = setTimeout(() => {
+      const finish = (callback: () => void) => {
+        if (settled) {
+          return;
+        }
+
         settled = true;
+        clearTimeout(timeout);
         if (pollTimer) {
           clearTimeout(pollTimer);
+          pollTimer = null;
         }
-        reject(new Error('WASM runtime init timeout'));
+        callback();
+      };
+      const timeout = setTimeout(() => {
+        finish(() => reject(new Error('WASM runtime init timeout')));
       }, 5000);
       const checkReady = () => {
-        if (settled) {
+        if (settled || disposed) {
           return;
         }
 
         if (
           typeof (global as Record<string, any>).goInitExport === 'function'
         ) {
-          settled = true;
-          clearTimeout(timeout);
-          if (pollTimer) {
-            clearTimeout(pollTimer);
-          }
-          resolve();
+          finish(resolve);
           return;
         }
 
@@ -272,6 +329,7 @@ export class WasmExcelService implements OnModuleDestroy {
     return {
       waitUntilReady: () => readyPromise,
       dispose: () => {
+        disposed = true;
         this.cleanupGlobals();
       },
     };
@@ -287,7 +345,14 @@ export class WasmExcelService implements OnModuleDestroy {
 
   private resolveWasmAssetsDir(): string {
     const candidates = [
+      join(process.cwd(), 'dist', 'excel-streamer'),
       join(process.cwd(), 'excel-streamer'),
+      join(
+        process.cwd(),
+        'nestjs-go-export-excel-wasm',
+        'dist',
+        'excel-streamer',
+      ),
       join(process.cwd(), 'nestjs-go-export-excel-wasm', 'excel-streamer'),
       join(__dirname, '../../../excel-streamer'),
       join(__dirname, '../../../../excel-streamer'),
@@ -302,6 +367,6 @@ export class WasmExcelService implements OnModuleDestroy {
       }
     }
 
-    throw new Error(`WASM assets not found. Checked: ${candidates.join(', ')}`);
+    return candidates[0];
   }
 }

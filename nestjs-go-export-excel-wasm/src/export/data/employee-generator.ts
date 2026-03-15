@@ -43,7 +43,7 @@ const SURNAMES = [
   'Соколов',
   'Михайлов',
   'Смирнов',
-  'Федоров',
+  'Фёдоров',
 ];
 const PATRONYMICS = ['Александрович', 'Дмитриевич', 'Сергеевич', 'Андреевич'];
 const POSITIONS = [
@@ -62,6 +62,42 @@ const DEPARTMENTS = [
 ];
 const CITIES = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург'];
 const EMPLOYMENT_TYPES = ['Полная занятость', 'Частичная занятость'];
+const REFERENCE_DATE = new Date('2026-01-01');
+const TRANSLIT_MAP: Record<string, string> = {
+  й: 'y',
+  ц: 'ts',
+  у: 'u',
+  к: 'k',
+  е: 'e',
+  ё: 'yo',
+  н: 'n',
+  г: 'g',
+  ш: 'sh',
+  щ: 'sch',
+  з: 'z',
+  х: 'h',
+  ъ: '',
+  ф: 'f',
+  ы: 'y',
+  в: 'v',
+  а: 'a',
+  п: 'p',
+  р: 'r',
+  о: 'o',
+  л: 'l',
+  д: 'd',
+  ж: 'zh',
+  э: 'e',
+  я: 'ya',
+  ч: 'ch',
+  с: 's',
+  м: 'm',
+  и: 'i',
+  т: 't',
+  ь: '',
+  б: 'b',
+  ю: 'yu',
+};
 
 export function buildEmployeeSeedRecord(
   id: number,
@@ -93,9 +129,9 @@ export function buildEmployeeSeedRecord(
     department: pickOne(DEPARTMENTS, rng),
     city: pickOne(CITIES, rng),
     birthDate,
-    age: diffYears(birthDate, new Date('2026-01-01')),
+    age: diffYears(birthDate, REFERENCE_DATE),
     hireDate,
-    tenureYears: diffYears(hireDate, new Date('2026-01-01')),
+    tenureYears: diffYears(hireDate, REFERENCE_DATE),
     employmentType: pickOne(EMPLOYMENT_TYPES, rng),
     isRemote: rng() > 0.4,
     baseSalary,
@@ -118,6 +154,10 @@ export function createMulberry32(seed: number): () => number {
 }
 
 function pickOne<T>(items: T[], rng: () => number): T {
+  if (items.length === 0) {
+    throw new Error('pickOne requires a non-empty array');
+  }
+
   return items[Math.floor(rng() * items.length)] ?? items[0];
 }
 
@@ -141,36 +181,7 @@ function pickSalary(rng: () => number): number {
 function translit(value: string): string {
   return value
     .toLowerCase()
-    .replace(/й/g, 'y')
-    .replace(/ц/g, 'ts')
-    .replace(/у/g, 'u')
-    .replace(/к/g, 'k')
-    .replace(/е/g, 'e')
-    .replace(/н/g, 'n')
-    .replace(/г/g, 'g')
-    .replace(/ш/g, 'sh')
-    .replace(/щ/g, 'sch')
-    .replace(/з/g, 'z')
-    .replace(/х/g, 'h')
-    .replace(/ъ/g, '')
-    .replace(/ф/g, 'f')
-    .replace(/ы/g, 'y')
-    .replace(/в/g, 'v')
-    .replace(/а/g, 'a')
-    .replace(/п/g, 'p')
-    .replace(/р/g, 'r')
-    .replace(/о/g, 'o')
-    .replace(/л/g, 'l')
-    .replace(/д/g, 'd')
-    .replace(/ж/g, 'zh')
-    .replace(/э/g, 'e')
-    .replace(/я/g, 'ya')
-    .replace(/ч/g, 'ch')
-    .replace(/с/g, 's')
-    .replace(/м/g, 'm')
-    .replace(/и/g, 'i')
-    .replace(/т/g, 't')
-    .replace(/ь/g, '')
-    .replace(/б/g, 'b')
-    .replace(/ю/g, 'yu');
+    .split('')
+    .map((char) => TRANSLIT_MAP[char] ?? char)
+    .join('');
 }

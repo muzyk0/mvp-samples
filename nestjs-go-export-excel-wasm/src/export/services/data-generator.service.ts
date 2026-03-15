@@ -41,22 +41,31 @@ export class DataGeneratorService {
     return this.exportDatasetRepository.getColumnNames();
   }
 
+  private isExportRequestDto(
+    value: ExportRequestDto | ExportFilterDto | undefined,
+  ): value is ExportRequestDto {
+    if (!value) {
+      return false;
+    }
+
+    return (
+      'limit' in value ||
+      'columns' in value ||
+      'fileName' in value ||
+      'batchSize' in value
+    );
+  }
+
   private normalizeOptions(
     optionsOrFilters?: ExportRequestDto | ExportFilterDto,
     limit: number = 10000,
     batchSize: number = 500,
   ): ExportRequestDto {
-    if (
-      optionsOrFilters &&
-      ('limit' in optionsOrFilters ||
-        'columns' in optionsOrFilters ||
-        'fileName' in optionsOrFilters ||
-        'batchSize' in optionsOrFilters)
-    ) {
+    if (this.isExportRequestDto(optionsOrFilters)) {
       return {
         batchSize,
         ...optionsOrFilters,
-      } as ExportRequestDto;
+      };
     }
 
     return {

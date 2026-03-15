@@ -134,7 +134,9 @@ describe('Export comparison app (e2e)', () => {
     expect(response.headers['content-disposition']).toContain(
       'attachment; filename="evilname-malicious.xlsx"',
     );
-    expect(response.headers['content-disposition']).toContain("filename*=UTF-8''");
+    expect(response.headers['content-disposition']).toContain(
+      "filename*=UTF-8''",
+    );
   });
 
   it('/export/benchmark/default (GET)', async () => {

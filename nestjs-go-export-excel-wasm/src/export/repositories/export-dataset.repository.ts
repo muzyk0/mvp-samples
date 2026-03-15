@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Employee, Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 import { ExportFilterDto, ExportRequestDto } from '../dto/export-request.dto';
 import {
   ExportDataRow,
   ExportDataset,
 } from '../interfaces/export-data.interface';
-import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ExportDatasetRepository {
@@ -59,6 +59,7 @@ export class ExportDatasetRepository {
     const rows = await this.getWindowedRows(
       limit,
       startOffset,
+      totalMatching,
       options.filters,
     );
 
@@ -77,24 +78,28 @@ export class ExportDatasetRepository {
   private async getWindowedRows(
     limit: number,
     offset: number,
+    totalMatching: number,
     filters?: ExportFilterDto,
   ): Promise<Employee[]> {
     const where = this.buildWhere(filters);
+    const firstTake = Math.min(limit, Math.max(totalMatching - offset, 0));
+
     const firstChunk = await this.prisma.employee.findMany({
       where,
       orderBy: { id: 'asc' },
       skip: offset,
-      take: limit,
+      take: firstTake,
     });
 
-    if (firstChunk.length >= limit) {
+    if (firstChunk.length >= limit || firstChunk.length === totalMatching) {
       return firstChunk;
     }
 
-    const remainder = limit - firstChunk.length;
-    if (remainder <= 0) {
-      return firstChunk;
-    }
+    const seenIds = new Set(firstChunk.map((row) => row.id));
+    const remainder = Math.min(
+      limit - firstChunk.length,
+      totalMatching - seenIds.size,
+    );
 
     const secondChunk = await this.prisma.employee.findMany({
       where,
@@ -102,7 +107,10 @@ export class ExportDatasetRepository {
       take: remainder,
     });
 
-    return [...firstChunk, ...secondChunk];
+    const dedupedSecondChunk = secondChunk.filter(
+      (row) => !seenIds.has(row.id),
+    );
+    return [...firstChunk, ...dedupedSecondChunk];
   }
 
   private buildWhere(filters?: ExportFilterDto): Prisma.EmployeeWhereInput {

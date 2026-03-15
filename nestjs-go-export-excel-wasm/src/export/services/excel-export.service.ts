@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { ExportRequestDto } from '../dto/export-request.dto';
 import { ExportData } from '../interfaces/export-data.interface';
@@ -8,6 +13,8 @@ import { StreamResponseService } from './stream-response.service';
 
 @Injectable()
 export class ExcelExportService {
+  private readonly logger = new Logger(ExcelExportService.name);
+
   constructor(
     private readonly exportComparisonService: ExportComparisonService,
     private readonly dataGeneratorService: DataGeneratorService,
@@ -27,9 +34,16 @@ export class ExcelExportService {
         result.contentType,
       );
     } catch (error) {
-      throw new BadRequestException(
-        `Ошибка при экспорте: ${(error as Error).message}`,
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `WASM export failed: ${message}`,
+        error instanceof Error ? error.stack : undefined,
       );
+      throw new InternalServerErrorException(`Ошибка при экспорте: ${message}`);
     }
   }
 
