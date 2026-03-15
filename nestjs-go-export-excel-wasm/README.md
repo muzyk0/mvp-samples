@@ -65,9 +65,18 @@ npm run prisma:seed
 - таблица: `Employee`
 - размер seed dataset по умолчанию: **10_000** сотрудников
 - dataset строится детерминированно через общий генератор (`src/export/data/employee-generator.ts`)
+- seed пишет данные **батчами**, не собирая весь dataset в один большой JS-массив
+- batch insert по умолчанию: **1000** записей за итерацию
 - можно переопределить:
   - `SEED_EMPLOYEE_COUNT`
   - `SEED_DATASET_SEED`
+  - `SEED_BATCH_SIZE`
+
+Пример большого batched seed:
+
+```bash
+SEED_EMPLOYEE_COUNT=200000 SEED_BATCH_SIZE=1000 npm run prisma:seed
+```
 
 ## WASM build
 
