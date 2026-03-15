@@ -1,25 +1,27 @@
 import { Module } from '@nestjs/common';
-import { ExcelExportController } from './controllers/excel-export.controller';
-import { TestExportController } from './controllers/test-export.controller';
-import { DebugController } from './controllers/debug.controller'; // Добавить эту строку
-import { ExcelExportService } from './services/excel-export.service';
-import { WasmExcelService } from './services/wasm-excel.service';
+import { ExceljsExportController } from './controllers/exceljs-export.controller';
+import { WasmExportController } from './controllers/wasm-export.controller';
+import { ExportBenchmarkController } from './controllers/export-benchmark.controller';
+import { ExportDatasetController } from './controllers/export-dataset.controller';
 import { DataGeneratorService } from './services/data-generator.service';
+import { ExceljsExportService } from './services/exceljs-export.service';
+import { WasmExcelService } from './services/wasm-excel.service';
+import { StreamResponseService } from './services/stream-response.service';
+import { ExportComparisonService } from './services/export-comparison.service';
 
 @Module({
-    controllers: [
-        ExcelExportController,
-        TestExportController,
-        DebugController // Добавить эту строку
-    ],
-    providers: [
-        ExcelExportService,
-        WasmExcelService,
-        DataGeneratorService
-    ],
-    exports: [
-        ExcelExportService,
-        WasmExcelService
-    ]
+  controllers: [
+    ExceljsExportController,
+    WasmExportController,
+    ExportBenchmarkController,
+    ExportDatasetController,
+  ],
+  providers: [
+    DataGeneratorService,
+    ExceljsExportService,
+    WasmExcelService,
+    StreamResponseService,
+    ExportComparisonService,
+  ],
 })
 export class ExcelExportModule {}

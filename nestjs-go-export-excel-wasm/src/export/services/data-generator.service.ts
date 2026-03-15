@@ -1,169 +1,315 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ExportData, ExportDataRow } from '../interfaces/export-data.interface';
-import { ExportFilterDto } from '../dto/export-request.dto';
+import { Injectable } from '@nestjs/common';
+import { ExportFilterDto, ExportRequestDto } from '../dto/export-request.dto';
+import {
+  ExportDataRow,
+  ExportDataset,
+} from '../interfaces/export-data.interface';
+
+interface ExportDataSource {
+  getRows(options: ExportRequestDto): Promise<ExportDataset>;
+}
+
+class InMemoryExportDataSource implements ExportDataSource {
+  constructor(
+    private readonly buildDataset: (options: ExportRequestDto) => ExportDataset,
+  ) {}
+
+  getRows(options: ExportRequestDto): Promise<ExportDataset> {
+    return Promise.resolve(this.buildDataset(options));
+  }
+}
 
 @Injectable()
 export class DataGeneratorService {
-    private readonly logger = new Logger(DataGeneratorService.name);
+  private readonly dataSource: ExportDataSource;
 
-    // Генератор для потоковой передачи данных (возвращает массив объектов)
-    async *generateExportDataStream(
-        filters?: ExportFilterDto,
-        limit: number = 10000,
-        batchSize: number = 500
-    ): AsyncGenerator<Record<string, any>[]> {
-        this.logger.log(`Запуск потоковой генерации данных: ${limit} записей, batch: ${batchSize}`);
+  constructor() {
+    this.dataSource = new InMemoryExportDataSource((options) =>
+      this.buildDataset(options),
+    );
+  }
 
-        let generated = 0;
+  async getDataset(options: ExportRequestDto): Promise<ExportDataset> {
+    return this.dataSource.getRows(options);
+  }
 
-        while (generated < limit) {
-            const currentBatch = Math.min(batchSize, limit - generated);
-            const batch: Record<string, any>[] = [];
+  async *generateExportDataStream(
+    optionsOrFilters?: ExportRequestDto | ExportFilterDto,
+    limit?: number,
+    batchSize?: number,
+  ): AsyncGenerator<ExportDataRow[]> {
+    const options = this.normalizeOptions(optionsOrFilters, limit, batchSize);
+    const dataset = await this.getDataset(options);
+    const chunkSize = options.batchSize ?? 500;
 
-            for (let i = 0; i < currentBatch; i++) {
-                const row = this.generateRowObject(generated + i + 1, filters);
-                batch.push(row);
-            }
+    for (let index = 0; index < dataset.rows.length; index += chunkSize) {
+      yield dataset.rows.slice(index, index + chunkSize);
+    }
+  }
 
-            generated += currentBatch;
+  async generateExportData(
+    filters?: ExportFilterDto,
+    limit: number = 10000,
+  ): Promise<ExportDataset> {
+    return this.getDataset({ filters, limit });
+  }
 
-            // Логирование прогресса
-            if (generated % 5000 === 0 || generated === limit) {
-                this.logger.debug(`Сгенерировано ${generated} из ${limit} записей`);
-            }
+  getColumnNames(): string[] {
+    return [
+      'ID',
+      'Имя',
+      'Фамилия',
+      'Отчество',
+      'Email рабочий',
+      'Телефон мобильный',
+      'Должность',
+      'Отдел',
+      'Город проживания',
+      'Дата рождения',
+      'Возраст',
+      'Дата приема на работу',
+      'Стаж (лет)',
+      'Тип занятости',
+      'Удаленная работа',
+      'Зарплата (базовая)',
+      'Зарплата (бонусная)',
+      'Зарплата (итоговая)',
+      'Рейтинг производительности',
+      'Активен',
+    ];
+  }
 
-            yield batch;
-        }
-
-        this.logger.log(`Завершена генерация ${generated} записей`);
+  private normalizeOptions(
+    optionsOrFilters?: ExportRequestDto | ExportFilterDto,
+    limit: number = 10000,
+    batchSize: number = 500,
+  ): ExportRequestDto {
+    if (
+      optionsOrFilters &&
+      ('limit' in optionsOrFilters ||
+        'columns' in optionsOrFilters ||
+        'fileName' in optionsOrFilters ||
+        'batchSize' in optionsOrFilters)
+    ) {
+      return {
+        batchSize,
+        ...optionsOrFilters,
+      } as ExportRequestDto;
     }
 
-    // Генерация одной строки как объекта
-    generateRowObject(id: number, filters?: ExportFilterDto): Record<string, any> {
-        const names = ['Алексей', 'Дмитрий', 'Екатерина', 'Михаил', 'Наталья', 'Павел', 'Светлана', 'Татьяна', 'Анна', 'Иван'];
-        const surnames = ['Иванов', 'Петров', 'Сидоров', 'Кузнецов', 'Попов', 'Васильев', 'Соколов', 'Михайлов', 'Смирнов', 'Федоров'];
-        const positions = ['Junior Developer', 'Middle Developer', 'Senior Developer', 'Team Lead', 'Project Manager'];
-        const departments = ['Разработка', 'Тестирование', 'Аналитика', 'Дизайн', 'Маркетинг'];
+    return {
+      filters: optionsOrFilters,
+      limit,
+      batchSize,
+    };
+  }
 
-        // Применяем фильтры если есть
-        let department = departments[Math.floor(Math.random() * departments.length)];
-        let position = positions[Math.floor(Math.random() * positions.length)];
+  private buildDataset(options: ExportRequestDto): ExportDataset {
+    const limit = options.limit ?? 10000;
+    const offset = options.offset ?? 0;
+    const seed = options.seed ?? 12345;
+    const columns = options.columns?.length
+      ? options.columns
+      : this.getColumnNames();
+    const rng = this.createMulberry32(seed);
+    const rows: ExportDataRow[] = [];
 
-        if (filters?.department) {
-            department = filters.department;
-        }
-
-        if (filters?.position) {
-            position = filters.position;
-        }
-
-        const name = names[Math.floor(Math.random() * names.length)];
-        const surname = surnames[Math.floor(Math.random() * surnames.length)];
-        const salary = filters?.minSalary
-            ? filters.minSalary + Math.floor(Math.random() * (filters.maxSalary || 200000 - filters.minSalary))
-            : 50000 + Math.floor(Math.random() * 150000);
-
-        // Создаем объект с данными (аналогично ExcelJS worksheet.addRow)
-        const row: Record<string, any> = {
-            'ID': id,
-            'Имя': name,
-            'Фамилия': surname,
-            'Отчество': ['Александрович', 'Дмитриевич', 'Сергеевич', 'Андреевич'][Math.floor(Math.random() * 4)],
-            'Дата рождения': this.randomDate(new Date(1970, 0, 1), new Date(2000, 0, 1)),
-            'Возраст': 20 + Math.floor(Math.random() * 40),
-            'Пол': Math.random() > 0.5 ? 'Мужской' : 'Женский',
-            'Email личный': `${name.toLowerCase()}.${surname.toLowerCase()}@gmail.com`,
-            'Email рабочий': `${name.toLowerCase()}.${surname.toLowerCase()}@company.com`,
-            'Телефон мобильный': `+7 999 ${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}-${String(Math.floor(Math.random() * 100)).padStart(2, '0')}-${String(Math.floor(Math.random() * 100)).padStart(2, '0')}`,
-            'Должность': position,
-            'Отдел': department,
-            'Зарплата (базовая)': salary,
-            'Зарплата (бонусная)': Math.floor(Math.random() * 50000),
-            'Зарплата (итоговая)': salary + Math.floor(Math.random() * 50000),
-            'Дата приема на работу': this.randomDate(new Date(2015, 0, 1), new Date(2023, 0, 1)),
-            'Стаж (лет)': Math.floor(Math.random() * 10),
-            'Тип занятости': Math.random() > 0.5 ? 'Полная занятость' : 'Частичная занятость',
-            'Удаленная работа': Math.random() > 0.5,
-            'Город проживания': ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург'][Math.floor(Math.random() * 4)],
-            'Страна': 'Россия',
-            'Образование': Math.random() > 0.7 ? 'Высшее' : 'Среднее специальное',
-            'Иностранные языки': Math.random() > 0.5 ? 'Английский' : 'Немецкий',
-            'Уровень английского': ['A1', 'A2', 'B1', 'B2', 'C1'][Math.floor(Math.random() * 5)],
-            'Навыки (hard skills)': 'JavaScript, TypeScript, Node.js',
-            'Навыки (soft skills)': 'Коммуникабельность, Работа в команде',
-            'Опыт работы (лет)': Math.floor(Math.random() * 20),
-            'Хобби': ['Чтение', 'Спорт', 'Путешествия'][Math.floor(Math.random() * 3)],
-            'Спорт': ['Футбол', 'Бег', 'Плавание'][Math.floor(Math.random() * 3)],
-            'Семейное положение': Math.random() > 0.5 ? 'Женат/Замужем' : 'Холост/Не замужем',
-            'Дети (кол-во)': Math.floor(Math.random() * 4),
-            'Корпоративный ноутбук': Math.random() > 0.5,
-            'Корпоративный телефон': Math.random() > 0.3,
-            'Активен': true,
-            'Рейтинг производительности': parseFloat((Math.random() * 5).toFixed(1)),
-            'Последняя оценка': this.randomDate(new Date(2023, 0, 1), new Date(2024, 0, 1)),
-            'Дата следующей оценки': this.randomDate(new Date(2024, 0, 1), new Date(2025, 0, 1))
-        };
-
-        return row;
+    for (let index = 0; index < limit; index += 1) {
+      const rowId = offset + index + 1;
+      const row = this.generateRowObject(rowId, rng, options.filters);
+      rows.push(this.pickColumns(row, columns));
     }
 
-    private randomDate(start: Date, end: Date): string {
-        const date = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-        return date.toISOString().split('T')[0]; // Формат YYYY-MM-DD
+    return {
+      columns,
+      rows,
+      total: rows.length,
+      seed,
+    };
+  }
+
+  private pickColumns(row: ExportDataRow, columns: string[]): ExportDataRow {
+    return columns.reduce<ExportDataRow>((acc, column) => {
+      acc[column] = row[column] ?? null;
+      return acc;
+    }, {});
+  }
+
+  generateRowObject(
+    id: number,
+    rng: () => number = this.createMulberry32(12345 + id),
+    filters?: ExportFilterDto,
+  ): ExportDataRow {
+    const names = [
+      'Алексей',
+      'Дмитрий',
+      'Екатерина',
+      'Михаил',
+      'Наталья',
+      'Павел',
+      'Светлана',
+      'Татьяна',
+      'Анна',
+      'Иван',
+    ];
+    const surnames = [
+      'Иванов',
+      'Петров',
+      'Сидоров',
+      'Кузнецов',
+      'Попов',
+      'Васильев',
+      'Соколов',
+      'Михайлов',
+      'Смирнов',
+      'Федоров',
+    ];
+    const patronymics = [
+      'Александрович',
+      'Дмитриевич',
+      'Сергеевич',
+      'Андреевич',
+    ];
+    const positions = [
+      'Junior Developer',
+      'Middle Developer',
+      'Senior Developer',
+      'Team Lead',
+      'Project Manager',
+    ];
+    const departments = [
+      'Разработка',
+      'Тестирование',
+      'Аналитика',
+      'Дизайн',
+      'Маркетинг',
+    ];
+    const cities = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург'];
+    const employmentTypes = ['Полная занятость', 'Частичная занятость'];
+
+    const firstName = this.pickOne(names, rng);
+    const lastName = this.pickOne(surnames, rng);
+    const position = filters?.position ?? this.pickOne(positions, rng);
+    const department = filters?.department ?? this.pickOne(departments, rng);
+    const baseSalary = this.pickSalary(rng, filters);
+    const bonus = this.randomInt(rng, 5000, 50000);
+    const birthDate = this.randomDate(
+      rng,
+      new Date('1975-01-01'),
+      new Date('2000-12-31'),
+    );
+    const hireDate = this.randomDate(
+      rng,
+      new Date('2015-01-01'),
+      new Date('2024-12-31'),
+    );
+
+    return {
+      ID: id,
+      Имя: firstName,
+      Фамилия: lastName,
+      Отчество: this.pickOne(patronymics, rng),
+      'Email рабочий': `${this.translit(firstName)}.${this.translit(lastName)}.${id}@company.local`,
+      'Телефон мобильный': `+7 9${this.randomInt(rng, 10, 99)} ${this.randomInt(rng, 100, 999)}-${this.randomInt(rng, 10, 99)}-${this.randomInt(rng, 10, 99)}`,
+      Должность: position,
+      Отдел: department,
+      'Город проживания': this.pickOne(cities, rng),
+      'Дата рождения': birthDate,
+      Возраст: this.diffYears(birthDate, new Date('2026-01-01')),
+      'Дата приема на работу': hireDate,
+      'Стаж (лет)': this.diffYears(hireDate, new Date('2026-01-01')),
+      'Тип занятости': this.pickOne(employmentTypes, rng),
+      'Удаленная работа': rng() > 0.4,
+      'Зарплата (базовая)': baseSalary,
+      'Зарплата (бонусная)': bonus,
+      'Зарплата (итоговая)': baseSalary + bonus,
+      'Рейтинг производительности': Number((2.5 + rng() * 2.5).toFixed(1)),
+      Активен: rng() > 0.15,
+    };
+  }
+
+  private translit(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/й/g, 'y')
+      .replace(/ц/g, 'ts')
+      .replace(/у/g, 'u')
+      .replace(/к/g, 'k')
+      .replace(/е/g, 'e')
+      .replace(/н/g, 'n')
+      .replace(/г/g, 'g')
+      .replace(/ш/g, 'sh')
+      .replace(/щ/g, 'sch')
+      .replace(/з/g, 'z')
+      .replace(/х/g, 'h')
+      .replace(/ъ/g, '')
+      .replace(/ф/g, 'f')
+      .replace(/ы/g, 'y')
+      .replace(/в/g, 'v')
+      .replace(/а/g, 'a')
+      .replace(/п/g, 'p')
+      .replace(/р/g, 'r')
+      .replace(/о/g, 'o')
+      .replace(/л/g, 'l')
+      .replace(/д/g, 'd')
+      .replace(/ж/g, 'zh')
+      .replace(/э/g, 'e')
+      .replace(/я/g, 'ya')
+      .replace(/ч/g, 'ch')
+      .replace(/с/g, 's')
+      .replace(/м/g, 'm')
+      .replace(/и/g, 'i')
+      .replace(/т/g, 't')
+      .replace(/ь/g, '')
+      .replace(/б/g, 'b')
+      .replace(/ю/g, 'yu');
+  }
+
+  private pickSalary(rng: () => number, filters?: ExportFilterDto): number {
+    const min = filters?.minSalary ?? 60000;
+    const max = filters?.maxSalary ?? 240000;
+    return this.randomInt(rng, min, max);
+  }
+
+  private pickOne<T>(items: T[], rng: () => number): T {
+    return items[Math.floor(rng() * items.length)];
+  }
+
+  private randomInt(rng: () => number, min: number, max: number): number {
+    return Math.floor(rng() * (max - min + 1)) + min;
+  }
+
+  private randomDate(rng: () => number, start: Date, end: Date): string {
+    const value = new Date(
+      start.getTime() + Math.floor(rng() * (end.getTime() - start.getTime())),
+    );
+    return value.toISOString().slice(0, 10);
+  }
+
+  private diffYears(isoDate: string, endDate: Date): number {
+    const startDate = new Date(isoDate);
+    let years = endDate.getUTCFullYear() - startDate.getUTCFullYear();
+    const monthDelta = endDate.getUTCMonth() - startDate.getUTCMonth();
+
+    if (
+      monthDelta < 0 ||
+      (monthDelta === 0 && endDate.getUTCDate() < startDate.getUTCDate())
+    ) {
+      years -= 1;
     }
 
-    getColumnNames(): string[] {
-        return [
-            'ID',
-            'Имя',
-            'Фамилия',
-            'Отчество',
-            'Дата рождения',
-            'Возраст',
-            'Пол',
-            'Email личный',
-            'Email рабочий',
-            'Телефон мобильный',
-            'Должность',
-            'Отдел',
-            'Зарплата (базовая)',
-            'Зарплата (бонусная)',
-            'Зарплата (итоговая)',
-            'Дата приема на работу',
-            'Стаж (лет)',
-            'Тип занятости',
-            'Удаленная работа',
-            'Город проживания',
-            'Страна',
-            'Образование',
-            'Иностранные языки',
-            'Уровень английского',
-            'Навыки (hard skills)',
-            'Навыки (soft skills)',
-            'Опыт работы (лет)',
-            'Хобби',
-            'Спорт',
-            'Семейное положение',
-            'Дети (кол-во)',
-            'Корпоративный ноутбук',
-            'Корпоративный телефон',
-            'Активен',
-            'Рейтинг производительности',
-            'Последняя оценка',
-            'Дата следующей оценки'
-        ];
-    }
+    return years;
+  }
 
-    // Для обратной совместимости
-    async generateExportData(filters?: ExportFilterDto, limit: number = 10000): Promise<ExportData> {
-        const rows: ExportDataRow[] = [];
-        const columns = this.getColumnNames();
+  private createMulberry32(seed: number): () => number {
+    let current = seed >>> 0;
 
-        for (let i = 1; i <= limit; i++) {
-            const rowObj = this.generateRowObject(i, filters);
-            rows.push(rowObj);
-        }
-
-        return { rows, total: rows.length, columns };
-    }
+    return () => {
+      current += 0x6d2b79f5;
+      let temp = current;
+      temp = Math.imul(temp ^ (temp >>> 15), temp | 1);
+      temp ^= temp + Math.imul(temp ^ (temp >>> 7), temp | 61);
+      return ((temp ^ (temp >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 }
