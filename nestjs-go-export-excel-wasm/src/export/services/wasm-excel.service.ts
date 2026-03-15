@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
 import {
+  BeforeApplicationShutdown,
   Injectable,
   Logger,
   OnModuleDestroy,
@@ -27,7 +28,9 @@ type RuntimeHandle = {
 };
 
 @Injectable()
-export class WasmExcelService implements OnModuleDestroy {
+export class WasmExcelService
+  implements OnModuleDestroy, BeforeApplicationShutdown
+{
   private readonly logger = new Logger(WasmExcelService.name);
   private readonly wasmAssetsDir = this.resolveWasmAssetsDir();
   private readonly wasmModulePath = join(
@@ -40,10 +43,16 @@ export class WasmExcelService implements OnModuleDestroy {
   private wasmLoadPromise?: Promise<void>;
   private queue: Promise<void> = Promise.resolve();
   private queueDepth = 0;
+  private initializedHeaders?: string[];
 
-  initializeExport(headers: string[]): Promise<boolean> {
-    void headers;
-    return Promise.resolve(true);
+  async initializeExport(headers: string[]): Promise<boolean> {
+    if (!Array.isArray(headers) || headers.length === 0) {
+      throw new ServiceUnavailableException('WASM export headers are required');
+    }
+
+    await this.ensureWasmLoaded();
+    this.initializedHeaders = [...headers];
+    return true;
   }
 
   async exportToStream(
@@ -75,7 +84,7 @@ export class WasmExcelService implements OnModuleDestroy {
     fileName: string,
     onProgress?: (progress: WasmProgress) => void,
   ): Promise<ExportExecutionResult> {
-    await this.ensureWasmLoaded();
+    await this.initializeExport(dataset.columns);
 
     return this.enqueue(async () => {
       const startTime = process.hrtime.bigint();
@@ -108,8 +117,9 @@ export class WasmExcelService implements OnModuleDestroy {
           throw new Error(status);
         };
 
+        const initHeaders = this.initializedHeaders ?? dataset.columns;
         const initResult = (global as Record<string, any>).goInitExport(
-          dataset.columns,
+          initHeaders,
           callback,
         );
         this.assertGoResult(initResult, 'Ошибка инициализации WASM');
@@ -172,6 +182,17 @@ export class WasmExcelService implements OnModuleDestroy {
       hasBinary:
         Boolean(this.wasmBuffer?.length) || existsSync(this.wasmModulePath),
     };
+  }
+
+  async beforeApplicationShutdown(): Promise<void> {
+    try {
+      await Promise.race([
+        this.queue,
+        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+      ]);
+    } finally {
+      this.cleanupGlobals();
+    }
   }
 
   onModuleDestroy(): void {

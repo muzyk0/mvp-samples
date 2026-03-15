@@ -5,7 +5,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { ExportRequestDto } from '../dto/export-request.dto';
+import {
+  DEFAULT_EXPORT_LIMIT,
+  MAX_EXPORT_LIMIT,
+  ExportRequestDto,
+} from '../dto/export-request.dto';
 import { ExportData } from '../interfaces/export-data.interface';
 import { DataGeneratorService } from './data-generator.service';
 import { ExportComparisonService } from './export-comparison.service';
@@ -68,11 +72,13 @@ export class ExcelExportService {
   ): Promise<{ valid: boolean; errors: string[] }> {
     const errors: string[] = [];
 
-    if ((options.limit ?? 0) > 100000) {
-      errors.push('Лимит не может превышать 100000 записей');
+    const effectiveLimit = options.limit ?? DEFAULT_EXPORT_LIMIT;
+
+    if (effectiveLimit > MAX_EXPORT_LIMIT) {
+      errors.push(`Лимит не может превышать ${MAX_EXPORT_LIMIT} записей`);
     }
 
-    if ((options.limit ?? 0) <= 0) {
+    if (effectiveLimit <= 0) {
       errors.push('Лимит должен быть больше 0');
     }
 

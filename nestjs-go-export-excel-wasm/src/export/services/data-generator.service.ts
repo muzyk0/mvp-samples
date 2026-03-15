@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { ExportFilterDto, ExportRequestDto } from '../dto/export-request.dto';
+import {
+  DEFAULT_EXPORT_BATCH_SIZE,
+  DEFAULT_EXPORT_LIMIT,
+  ExportFilterDto,
+  ExportRequestDto,
+} from '../dto/export-request.dto';
 import {
   ExportDataRow,
   ExportDataset,
@@ -23,7 +28,7 @@ export class DataGeneratorService {
   ): AsyncGenerator<ExportDataRow[]> {
     const options = this.normalizeOptions(optionsOrFilters, limit, batchSize);
     const dataset = await this.getDataset(options);
-    const chunkSize = options.batchSize ?? 500;
+    const chunkSize = this.normalizeBatchSize(options.batchSize);
 
     for (let index = 0; index < dataset.rows.length; index += chunkSize) {
       yield dataset.rows.slice(index, index + chunkSize);
@@ -52,18 +57,24 @@ export class DataGeneratorService {
       'limit' in value ||
       'columns' in value ||
       'fileName' in value ||
-      'batchSize' in value
+      'batchSize' in value ||
+      'filters' in value ||
+      'seed' in value ||
+      'offset' in value
     );
   }
 
   private normalizeOptions(
     optionsOrFilters?: ExportRequestDto | ExportFilterDto,
-    limit: number = 10000,
-    batchSize: number = 500,
+    limit: number = DEFAULT_EXPORT_LIMIT,
+    batchSize: number = DEFAULT_EXPORT_BATCH_SIZE,
   ): ExportRequestDto {
     if (this.isExportRequestDto(optionsOrFilters)) {
       return {
-        batchSize,
+        limit,
+        batchSize: this.normalizeBatchSize(
+          optionsOrFilters.batchSize ?? batchSize,
+        ),
         ...optionsOrFilters,
       };
     }
@@ -71,7 +82,17 @@ export class DataGeneratorService {
     return {
       filters: optionsOrFilters,
       limit,
-      batchSize,
+      batchSize: this.normalizeBatchSize(batchSize),
     };
+  }
+
+  private normalizeBatchSize(batchSize: number | undefined): number {
+    const effectiveBatchSize = batchSize ?? DEFAULT_EXPORT_BATCH_SIZE;
+
+    if (effectiveBatchSize <= 0) {
+      throw new Error('batchSize must be greater than 0');
+    }
+
+    return effectiveBatchSize;
   }
 }

@@ -4,13 +4,15 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 
+const BENCHMARK_TEST_TIMEOUT = 20_000;
+
 const binaryParser = (
   res: NodeJS.ReadableStream,
   callback: (error: Error | null, body: Buffer) => void,
 ) => {
   const chunks: Buffer[] = [];
 
-  res.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+  res.on('data', (chunk: Buffer) => chunks.push(chunk));
   res.on('end', () => callback(null, Buffer.concat(chunks)));
   res.on('error', (error: Error) => callback(error, Buffer.alloc(0)));
 };
@@ -139,20 +141,24 @@ describe('Export comparison app (e2e)', () => {
     );
   });
 
-  it('/export/benchmark/default (GET)', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/export/benchmark/default')
-      .expect(200);
+  it(
+    '/export/benchmark/default (GET)',
+    async () => {
+      const response = await request(app.getHttpServer())
+        .get('/export/benchmark/default')
+        .expect(200);
 
-    expect(response.body.request.limit).toBe(2000);
-    expect(response.body.exceljs.variant).toBe('exceljs');
-    expect(response.body.wasm.variant).toBe('wasm');
-    expect(response.body.exceljs.sizeBytes).toBeGreaterThan(0);
-    expect(response.body.wasm.sizeBytes).toBeGreaterThan(0);
-    expect(response.body.exceljs.buffer).toBeUndefined();
-    expect(response.body.wasm.buffer).toBeUndefined();
-    expect(typeof response.body.delta.memoryDeltaBytes).toBe('number');
-  }, 20000);
+      expect(response.body.request.limit).toBe(2000);
+      expect(response.body.exceljs.variant).toBe('exceljs');
+      expect(response.body.wasm.variant).toBe('wasm');
+      expect(response.body.exceljs.sizeBytes).toBeGreaterThan(0);
+      expect(response.body.wasm.sizeBytes).toBeGreaterThan(0);
+      expect(response.body.exceljs.buffer).toBeUndefined();
+      expect(response.body.wasm.buffer).toBeUndefined();
+      expect(typeof response.body.delta.memoryDeltaBytes).toBe('number');
+    },
+    BENCHMARK_TEST_TIMEOUT,
+  );
 
   it('/export/benchmark omits memory deltas when includeMemory=false', async () => {
     const response = await request(app.getHttpServer())

@@ -40,6 +40,20 @@ export class ExportFilterDto {
   maxSalary?: number;
 }
 
+export const DEFAULT_EXPORT_LIMIT = 10_000;
+export const DEFAULT_EXPORT_OFFSET = 0;
+export const DEFAULT_EXPORT_BATCH_SIZE = 500;
+export const DEFAULT_EXPORT_SEED = 12_345;
+export const MAX_EXPORT_LIMIT = 100_000;
+export const MAX_EXPORT_BATCH_SIZE = 10_000;
+
+export const DEFAULT_BENCHMARK_OPTIONS: BenchmarkRequestDto = {
+  limit: 2000,
+  seed: DEFAULT_EXPORT_SEED,
+  fileName: 'benchmark.xlsx',
+  includeMemory: true,
+};
+
 export class ExportRequestDto {
   @IsOptional()
   @ValidateNested()
@@ -50,27 +64,27 @@ export class ExportRequestDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100000)
-  limit: number = 10000;
+  @Max(MAX_EXPORT_LIMIT)
+  limit?: number = DEFAULT_EXPORT_LIMIT;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  offset?: number = 0;
+  offset?: number = DEFAULT_EXPORT_OFFSET;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(10000)
-  batchSize?: number = 500;
+  @Max(MAX_EXPORT_BATCH_SIZE)
+  batchSize?: number = DEFAULT_EXPORT_BATCH_SIZE;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  seed?: number = 12345;
+  seed?: number = DEFAULT_EXPORT_SEED;
 
   @IsOptional()
   @IsArray()

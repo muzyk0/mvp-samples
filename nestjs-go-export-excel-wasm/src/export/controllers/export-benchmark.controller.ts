@@ -1,5 +1,8 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { BenchmarkRequestDto } from '../dto/export-request.dto';
+import {
+  BenchmarkRequestDto,
+  DEFAULT_BENCHMARK_OPTIONS,
+} from '../dto/export-request.dto';
 import { ExportComparisonService } from '../services/export-comparison.service';
 
 @Controller('export/benchmark')
@@ -15,11 +18,6 @@ export class ExportBenchmarkController {
 
   @Get('default')
   async runDefault() {
-    return this.exportComparisonService.benchmark({
-      limit: 2000,
-      seed: 12345,
-      fileName: 'benchmark.xlsx',
-      includeMemory: true,
-    });
+    return this.exportComparisonService.benchmark(DEFAULT_BENCHMARK_OPTIONS);
   }
 }

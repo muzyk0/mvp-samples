@@ -20,6 +20,10 @@ describe('ExceljsExportService', () => {
 
     expect(result.variant).toBe('exceljs');
     expect(result.fileName).toBe('exceljs-test.xlsx');
+    expect(result.contentType).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
     expect(result.rowCount).toBe(2);
     expect(result.columnCount).toBe(2);
     expect(result.sizeBytes).toBeGreaterThan(0);
