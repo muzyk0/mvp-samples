@@ -8,6 +8,7 @@ import { ExceljsExportService } from './services/exceljs-export.service';
 import { WasmExcelService } from './services/wasm-excel.service';
 import { StreamResponseService } from './services/stream-response.service';
 import { ExportComparisonService } from './services/export-comparison.service';
+import { ExportDatasetRepository } from './repositories/export-dataset.repository';
 
 @Module({
   controllers: [
@@ -22,6 +23,7 @@ import { ExportComparisonService } from './services/export-comparison.service';
     WasmExcelService,
     StreamResponseService,
     ExportComparisonService,
+    ExportDatasetRepository,
   ],
 })
 export class ExcelExportModule {}

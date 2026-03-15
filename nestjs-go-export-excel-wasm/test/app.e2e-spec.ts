@@ -51,6 +51,19 @@ describe('Export comparison app (e2e)', () => {
     expect(response.body.wasm.hasBinary).toBe(true);
   });
 
+  it('/export/data (POST)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/export/data')
+      .send({ limit: 5, seed: 12345 })
+      .expect(201);
+
+    expect(response.body.total).toBe(5);
+    expect(response.body.seed).toBe(12345);
+    expect(response.body.sample).toHaveLength(5);
+    expect(response.body.sample[0]).toHaveProperty('ID');
+    expect(response.body.sample[0]).toHaveProperty('Email рабочий');
+  });
+
   it('/export/exceljs/download (POST)', async () => {
     const response = await request(app.getHttpServer())
       .post('/export/exceljs/download')

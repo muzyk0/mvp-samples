@@ -1,19 +1,28 @@
-const axios = require('axios');
-
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 async function main() {
-    const response = await axios.post(`${BASE_URL}/export/benchmark`, {
-        limit: Number(process.env.LIMIT || 1000),
-        seed: Number(process.env.SEED || 12345),
-        fileName: 'benchmark.xlsx',
-        includeMemory: true,
+    const response = await fetch(`${BASE_URL}/export/benchmark`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            limit: Number(process.env.LIMIT || 1000),
+            seed: Number(process.env.SEED || 12345),
+            fileName: 'benchmark.xlsx',
+            includeMemory: true,
+        }),
     });
 
-    console.log(JSON.stringify(response.data, null, 2));
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}`);
+    }
+
+    console.log(JSON.stringify(await response.json(), null, 2));
 }
 
 main().catch((error) => {
-    console.error(error.response?.data || error.message);
+    console.error(error.message || error);
     process.exit(1);
 });

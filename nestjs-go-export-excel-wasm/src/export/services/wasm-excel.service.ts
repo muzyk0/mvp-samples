@@ -21,12 +21,12 @@ type ExportJob = () => Promise<ExportExecutionResult>;
 export class WasmExcelService implements OnModuleDestroy {
   private readonly logger = new Logger(WasmExcelService.name);
   private readonly wasmModulePath = join(
-    __dirname,
-    '../../../excel-streamer/excel_bridge.wasm',
+    process.cwd(),
+    'excel-streamer/excel_bridge.wasm',
   );
   private readonly wasmExecPath = join(
-    __dirname,
-    '../../../excel-streamer/wasm_exec.js',
+    process.cwd(),
+    'excel-streamer/wasm_exec.js',
   );
   private readonly wasmBuffer: Buffer;
   private queue: Promise<void> = Promise.resolve();
