@@ -1,3 +1,5 @@
+import type { Writable } from 'stream';
+
 export interface ExportDataRow {
   [key: string]: string | number | boolean | Date | null;
 }
@@ -7,6 +9,17 @@ export interface ExportDataset {
   rows: ExportDataRow[];
   total: number;
   seed: number;
+}
+
+export interface ExportDatasetStreamPlan {
+  columns: string[];
+  total: number;
+  seed: number;
+  batchSize: number;
+  effectiveLimit: number;
+  totalMatching: number;
+  startOffset: number;
+  where?: unknown;
 }
 
 export interface ExportData {
@@ -29,7 +42,6 @@ export interface WasmProgress {
 
 export interface ExportExecutionResult {
   variant: 'exceljs' | 'wasm';
-  buffer: Buffer;
   fileName: string;
   contentType: string;
   durationMs: number;
@@ -39,7 +51,14 @@ export interface ExportExecutionResult {
   memoryDeltaBytes?: number;
 }
 
-export type ExportExecutionSummary = Omit<ExportExecutionResult, 'buffer'>;
+export interface StreamExportExecutionOptions {
+  writable: Writable;
+  fileName: string;
+  sheetName?: string;
+  onProgress?: (progress: WasmProgress) => void;
+}
+
+export type ExportExecutionSummary = ExportExecutionResult;
 
 export interface ExportBenchmarkResult {
   request: {

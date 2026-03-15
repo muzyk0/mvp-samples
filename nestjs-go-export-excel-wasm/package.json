@@ -20,7 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:comparison": "node test/export-comparison.js",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init-sqlite --skip-generate",
+    "prisma:migrate": "prisma migrate dev --name init-sqlite",
     "prisma:seed": "ts-node --project tsconfig.json prisma/seed.ts",
     "db:reset": "prisma migrate reset --force --skip-generate",
     "build:wasm": "cd excel-streamer && cp \"$(go env GOROOT)/lib/wasm/wasm_exec.js\" . && GOOS=js GOARCH=wasm go build -o excel_bridge.wasm excel_bridge.go"

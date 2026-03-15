@@ -1,18 +1,8 @@
 import ExcelJS from 'exceljs';
 import { WasmExcelService } from './wasm-excel.service';
-import { ExportDataset } from '../interfaces/export-data.interface';
+import { ExportDatasetStreamPlan } from '../interfaces/export-data.interface';
 
 describe('WasmExcelService', () => {
-  const dataset: ExportDataset = {
-    columns: ['ID', 'Name'],
-    rows: [
-      { ID: 1, Name: 'Alice' },
-      { ID: 2, Name: 'Bob' },
-    ],
-    total: 2,
-    seed: 42,
-  };
-
   let service: WasmExcelService;
 
   beforeEach(() => {
@@ -24,17 +14,36 @@ describe('WasmExcelService', () => {
   });
 
   it('exports a valid xlsx workbook with dataset metadata', async () => {
-    const result = await service.exportDataset(dataset, 'wasm-test.xlsx');
+    const plan: ExportDatasetStreamPlan = {
+      columns: ['ID', 'Name'],
+      total: 2,
+      seed: 42,
+      batchSize: 1,
+      effectiveLimit: 2,
+      totalMatching: 2,
+      startOffset: 0,
+    };
+
+    const rows = (async function* () {
+      yield [{ ID: 1, Name: 'Alice' }];
+      yield [{ ID: 2, Name: 'Bob' }];
+    })();
+
+    const { result, buffer } = await service.exportPlanToBuffer(
+      plan,
+      rows,
+      'wasm-test.xlsx',
+    );
 
     expect(result.variant).toBe('wasm');
     expect(result.fileName).toBe('wasm-test.xlsx');
     expect(result.rowCount).toBe(2);
     expect(result.columnCount).toBe(2);
     expect(result.sizeBytes).toBeGreaterThan(0);
-    expect(result.buffer.subarray(0, 2).toString()).toBe('PK');
+    expect(buffer.subarray(0, 2).toString()).toBe('PK');
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(result.buffer);
+    await workbook.xlsx.load(buffer);
     const worksheet = workbook.worksheets[0];
 
     expect(worksheet).toBeDefined();

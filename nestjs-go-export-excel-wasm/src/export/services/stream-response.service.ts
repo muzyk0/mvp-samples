@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { once } from 'events';
+import type { Readable } from 'stream';
 import type { Response } from 'express';
 
 @Injectable()
 export class StreamResponseService {
-  sendBuffer(
+  prepareDownload(
     response: Response,
-    buffer: Buffer,
     fileName: string,
     contentType: string = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   ): void {
@@ -17,11 +18,31 @@ export class StreamResponseService {
       'Content-Disposition',
       `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`,
     );
-    response.setHeader('Content-Length', buffer.length);
     response.setHeader(
       'Access-Control-Expose-Headers',
       'Content-Disposition, Content-Length',
     );
+  }
+
+  async pipeReadable(
+    response: Response,
+    readable: Readable,
+    fileName: string,
+    contentType?: string,
+  ): Promise<void> {
+    this.prepareDownload(response, fileName, contentType);
+    readable.pipe(response);
+    await once(response, 'finish');
+  }
+
+  sendBuffer(
+    response: Response,
+    buffer: Buffer,
+    fileName: string,
+    contentType: string = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ): void {
+    this.prepareDownload(response, fileName, contentType);
+    response.setHeader('Content-Length', buffer.length);
     response.end(buffer);
   }
 
