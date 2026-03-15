@@ -48,7 +48,7 @@ describe('WasmExcelService', () => {
 
   it('reports binary availability in status', () => {
     expect(service.getStatus()).toEqual({
-      queued: true,
+      queued: false,
       hasBinary: true,
     });
   });

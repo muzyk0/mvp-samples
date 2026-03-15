@@ -69,6 +69,7 @@ export class ExportRequestDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(0)
   seed?: number = 12345;
 
   @IsOptional()

@@ -58,6 +58,19 @@ describe('Export comparison app (e2e)', () => {
     expect(response.body.wasm.hasBinary).toBe(true);
   });
 
+  it('/export/data (POST)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/export/data')
+      .send({ limit: 5, seed: 12345 })
+      .expect(201);
+
+    expect(response.body.total).toBe(5);
+    expect(response.body.seed).toBe(12345);
+    expect(response.body.sample).toHaveLength(5);
+    expect(response.body.sample[0]).toHaveProperty('ID');
+    expect(response.body.sample[0]).toHaveProperty('Email рабочий');
+  });
+
   it('/export/exceljs/download (POST)', async () => {
     const response = await request(app.getHttpServer())
       .post('/export/exceljs/download')
@@ -118,9 +131,10 @@ describe('Export comparison app (e2e)', () => {
       })
       .expect(201);
 
-    expect(response.headers['content-disposition']).toBe(
+    expect(response.headers['content-disposition']).toContain(
       'attachment; filename="evilname-malicious.xlsx"',
     );
+    expect(response.headers['content-disposition']).toContain("filename*=UTF-8''");
   });
 
   it('/export/benchmark/default (GET)', async () => {

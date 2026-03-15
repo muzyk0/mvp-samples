@@ -10,9 +10,12 @@ export class StreamResponseService {
     contentType: string = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   ): void {
     response.setHeader('Content-Type', contentType);
+    const safeFileName = this.sanitizeFileName(fileName);
+    const encodedFileName = encodeURIComponent(fileName || safeFileName);
+
     response.setHeader(
       'Content-Disposition',
-      `attachment; filename="${this.sanitizeFileName(fileName)}"`,
+      `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`,
     );
     response.setHeader('Content-Length', buffer.length);
     response.setHeader(

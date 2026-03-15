@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ExcelExportModule } from './export/excel-export.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
@@ -8,6 +9,7 @@ import { ExcelExportModule } from './export/excel-export.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    PrismaModule,
     ExcelExportModule,
   ],
 })

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { Readable } from 'stream';
 import {
@@ -20,16 +20,15 @@ type ExportJob = () => Promise<ExportExecutionResult>;
 @Injectable()
 export class WasmExcelService implements OnModuleDestroy {
   private readonly logger = new Logger(WasmExcelService.name);
+  private readonly wasmAssetsDir = this.resolveWasmAssetsDir();
   private readonly wasmModulePath = join(
-    __dirname,
-    '../../../excel-streamer/excel_bridge.wasm',
+    this.wasmAssetsDir,
+    'excel_bridge.wasm',
   );
-  private readonly wasmExecPath = join(
-    __dirname,
-    '../../../excel-streamer/wasm_exec.js',
-  );
+  private readonly wasmExecPath = join(this.wasmAssetsDir, 'wasm_exec.js');
   private readonly wasmBuffer: Buffer;
   private queue: Promise<void> = Promise.resolve();
+  private queueDepth = 0;
 
   constructor() {
     require(this.wasmExecPath);
@@ -161,20 +160,17 @@ export class WasmExcelService implements OnModuleDestroy {
 
   getStatus(): { queued: boolean; hasBinary: boolean } {
     return {
-      queued: true,
+      queued: this.queueDepth > 0,
       hasBinary: Boolean(this.wasmBuffer?.length),
     };
   }
 
   onModuleDestroy(): void {
-    delete (global as Record<string, any>).goInitExport;
-    delete (global as Record<string, any>).goWriteRows;
-    delete (global as Record<string, any>).goFinalizeExport;
-    delete (global as Record<string, any>).goSetChunkSize;
-    delete (global as Record<string, any>).goGetProgress;
+    this.cleanupGlobals();
   }
 
   private async enqueue(job: ExportJob): Promise<ExportExecutionResult> {
+    this.queueDepth += 1;
     const previous = this.queue;
     let release!: () => void;
     this.queue = new Promise<void>((resolve) => {
@@ -186,6 +182,7 @@ export class WasmExcelService implements OnModuleDestroy {
     try {
       return await job();
     } finally {
+      this.queueDepth = Math.max(0, this.queueDepth - 1);
       release();
     }
   }
@@ -237,19 +234,33 @@ export class WasmExcelService implements OnModuleDestroy {
       (instantiateResult as { instance?: WebAssembly.Instance }).instance ??
       (instantiateResult as WebAssembly.Instance);
     const readyPromise = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(
-        () => reject(new Error('WASM runtime init timeout')),
-        5000,
-      );
+      let settled = false;
+      let pollTimer: ReturnType<typeof setTimeout> | null = null;
+      const timeout = setTimeout(() => {
+        settled = true;
+        if (pollTimer) {
+          clearTimeout(pollTimer);
+        }
+        reject(new Error('WASM runtime init timeout'));
+      }, 5000);
       const checkReady = () => {
+        if (settled) {
+          return;
+        }
+
         if (
           typeof (global as Record<string, any>).goInitExport === 'function'
         ) {
+          settled = true;
           clearTimeout(timeout);
+          if (pollTimer) {
+            clearTimeout(pollTimer);
+          }
           resolve();
           return;
         }
-        setTimeout(checkReady, 25);
+
+        pollTimer = setTimeout(checkReady, 25);
       };
       checkReady();
     });
@@ -261,12 +272,36 @@ export class WasmExcelService implements OnModuleDestroy {
     return {
       waitUntilReady: () => readyPromise,
       dispose: () => {
-        delete (global as Record<string, any>).goInitExport;
-        delete (global as Record<string, any>).goWriteRows;
-        delete (global as Record<string, any>).goFinalizeExport;
-        delete (global as Record<string, any>).goSetChunkSize;
-        delete (global as Record<string, any>).goGetProgress;
+        this.cleanupGlobals();
       },
     };
+  }
+
+  private cleanupGlobals(): void {
+    delete (global as Record<string, any>).goInitExport;
+    delete (global as Record<string, any>).goWriteRows;
+    delete (global as Record<string, any>).goFinalizeExport;
+    delete (global as Record<string, any>).goSetChunkSize;
+    delete (global as Record<string, any>).goGetProgress;
+  }
+
+  private resolveWasmAssetsDir(): string {
+    const candidates = [
+      join(process.cwd(), 'excel-streamer'),
+      join(process.cwd(), 'nestjs-go-export-excel-wasm', 'excel-streamer'),
+      join(__dirname, '../../../excel-streamer'),
+      join(__dirname, '../../../../excel-streamer'),
+    ];
+
+    for (const candidate of candidates) {
+      if (
+        existsSync(join(candidate, 'excel_bridge.wasm')) &&
+        existsSync(join(candidate, 'wasm_exec.js'))
+      ) {
+        return candidate;
+      }
+    }
+
+    throw new Error(`WASM assets not found. Checked: ${candidates.join(', ')}`);
   }
 }

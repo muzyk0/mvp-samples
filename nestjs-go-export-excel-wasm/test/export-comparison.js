@@ -14,16 +14,17 @@ async function main() {
     }),
   });
 
-  const payload = await response.json();
+  const bodyText = await response.text();
+  const payload = bodyText ? JSON.parse(bodyText) : null;
 
   if (!response.ok) {
-    throw new Error(JSON.stringify(payload));
+    throw new Error(payload ? JSON.stringify(payload) : `HTTP ${response.status}`);
   }
 
   console.log(JSON.stringify(payload, null, 2));
 }
 
 main().catch((error) => {
-  console.error(error.message);
+  console.error(error.message || error);
   process.exit(1);
 });

@@ -53,8 +53,11 @@ jobs:
 
       - name: Comparison validation
         run: |
-          PORT=3100 node dist/main &
+          PORT=3100 node dist/src/main.js &
           APP_PID=$!
           trap 'kill $APP_PID' EXIT
-          sleep 5
+          for i in {1..30}; do
+            curl -sf http://localhost:3100/export/exceljs/health >/dev/null && break
+            sleep 1
+          done
           BASE_URL=http://localhost:3100 npm run test:comparison
