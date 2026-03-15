@@ -16,10 +16,6 @@
   - `POST /export/benchmark`
 - preview endpoint:
   - `POST /export/data`
-- совместимость со старым sample API:
-  - `POST /export/excel/stream`
-  - `POST /export/excel/download`
-  - `GET /export/health`
 
 ## Идея архитектуры
 
@@ -79,8 +75,11 @@ curl -X POST http://localhost:3000/export/benchmark \
 npm run test:comparison
 ```
 
+Скрипт ожидает поднятое приложение на `BASE_URL` (по умолчанию `http://localhost:3000`) и вызывает `POST /export/benchmark`.
+
 ## Замечания
 
 - WASM-ветка всё ещё экспериментальная и запускается последовательно через очередь, чтобы избежать гонок из-за глобального Go/WASM state.
 - Потоковая отдача пока сведена к безопасной отдаче готового `Buffer` в ответ; это менее амбициозно, но заметно стабильнее для сравнения вариантов.
-- Для пересборки `excel_bridge.wasm` нужен Go toolchain; в текущем окружении можно использовать уже закоммиченный бинарник.
+- В репозитории хранятся две копии `excel_bridge.wasm`: рабочая в `excel-streamer/` и зеркальная в `src/export/shared/wasm/`. Перед коммитом их нужно держать синхронными.
+- Для пересборки `excel_bridge.wasm` нужен Go toolchain; удобнее всего запустить `npm run build:wasm`, затем синхронизировать бинарник во вторую папку.
