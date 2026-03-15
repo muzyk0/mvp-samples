@@ -1,5 +1,5 @@
 import {
-  BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -38,7 +38,7 @@ export class ExcelExportService {
         result.contentType,
       );
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (error instanceof HttpException) {
         throw error;
       }
 

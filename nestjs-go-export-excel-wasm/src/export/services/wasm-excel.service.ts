@@ -43,16 +43,14 @@ export class WasmExcelService
   private wasmLoadPromise?: Promise<void>;
   private queue: Promise<void> = Promise.resolve();
   private queueDepth = 0;
-  private initializedHeaders?: string[];
 
-  async initializeExport(headers: string[]): Promise<boolean> {
+  async initializeExport(headers: string[]): Promise<string[]> {
     if (!Array.isArray(headers) || headers.length === 0) {
       throw new ServiceUnavailableException('WASM export headers are required');
     }
 
     await this.ensureWasmLoaded();
-    this.initializedHeaders = [...headers];
-    return true;
+    return [...headers];
   }
 
   async exportToStream(
@@ -84,7 +82,7 @@ export class WasmExcelService
     fileName: string,
     onProgress?: (progress: WasmProgress) => void,
   ): Promise<ExportExecutionResult> {
-    await this.initializeExport(dataset.columns);
+    const initializedHeaders = await this.initializeExport(dataset.columns);
 
     return this.enqueue(async () => {
       const startTime = process.hrtime.bigint();
@@ -117,9 +115,8 @@ export class WasmExcelService
           throw new Error(status);
         };
 
-        const initHeaders = this.initializedHeaders ?? dataset.columns;
         const initResult = (global as Record<string, any>).goInitExport(
-          initHeaders,
+          initializedHeaders,
           callback,
         );
         this.assertGoResult(initResult, 'Ошибка инициализации WASM');

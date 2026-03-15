@@ -181,4 +181,15 @@ describe('Export comparison app (e2e)', () => {
       })
       .expect(400);
   });
+
+  it('/export/data rejects requests with only invalid explicit columns', async () => {
+    await request(app.getHttpServer())
+      .post('/export/data')
+      .send({
+        limit: 5,
+        seed: 12345,
+        columns: ['not-a-real-column'],
+      })
+      .expect(400);
+  });
 });

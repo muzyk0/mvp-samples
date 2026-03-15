@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Employee, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -201,7 +201,13 @@ export class ExportDatasetRepository {
     const allowed = new Set<string>(this.defaultColumns);
     const sanitized = columns.filter((column) => allowed.has(column));
 
-    return sanitized.length > 0 ? sanitized : [...this.defaultColumns];
+    if (sanitized.length === 0) {
+      throw new BadRequestException(
+        'At least one valid column must be requested when columns are provided',
+      );
+    }
+
+    return sanitized;
   }
 
   private pickColumns(row: ExportDataRow, columns: string[]): ExportDataRow {

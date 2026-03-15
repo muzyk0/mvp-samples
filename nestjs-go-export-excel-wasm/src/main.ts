@@ -2,7 +2,35 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
-async function bootstrap() {
+export type CorsOriginDelegate = (
+  origin: string | undefined,
+  callback: (error: Error | null, allow?: boolean) => void,
+) => void;
+
+export function createCorsOriginDelegate(
+  allowedOrigins: string[],
+  logger: Pick<Logger, 'warn'>,
+): CorsOriginDelegate {
+  return (
+    origin: string | undefined,
+    callback: (error: Error | null, allow?: boolean) => void,
+  ) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    logger.warn(`Rejected CORS request from origin: ${origin}`);
+    callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
+  };
+}
+
+export async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
@@ -21,22 +49,16 @@ async function bootstrap() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  app.enableCors({
-    origin: (
-      origin: string | undefined,
-      callback: (error: Error | null, allow?: boolean) => void,
-    ) => {
-      if (
-        !origin ||
-        allowedOrigins.length === 0 ||
-        allowedOrigins.includes(origin)
-      ) {
-        callback(null, true);
-        return;
-      }
+  if (allowedOrigins.length === 0) {
+    logger.warn(
+      'ALLOWED_ORIGINS is empty. Browser requests with an Origin header will be rejected while non-browser requests without Origin remain allowed.',
+    );
+  } else {
+    logger.log(`Configured CORS origins: ${allowedOrigins.join(', ')}`);
+  }
 
-      callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
-    },
+  app.enableCors({
+    origin: createCorsOriginDelegate(allowedOrigins, logger),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -48,4 +70,6 @@ async function bootstrap() {
   logger.log(`Эндпоинт экспорта: http://localhost:${port}/export`);
 }
 
-void bootstrap();
+if (require.main === module) {
+  void bootstrap();
+}
