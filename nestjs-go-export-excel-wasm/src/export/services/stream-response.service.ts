@@ -12,7 +12,7 @@ export class StreamResponseService {
   ): void {
     response.setHeader('Content-Type', contentType);
     const safeFileName = this.sanitizeFileName(fileName);
-    const encodedFileName = encodeURIComponent(fileName || safeFileName);
+    const encodedFileName = encodeURIComponent(safeFileName);
 
     response.setHeader(
       'Content-Disposition',

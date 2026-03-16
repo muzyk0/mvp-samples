@@ -115,19 +115,23 @@ describe('Export comparison app (e2e)', () => {
       .expect(400);
   });
 
-  it('/export/wasm/quick accepts large limit values', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/export/wasm/quick?limit=100001&seed=12345')
-      .buffer(true)
-      .parse(binaryParser)
-      .expect(200);
+  it(
+    '/export/wasm/quick accepts large limit values',
+    async () => {
+      const response = await request(app.getHttpServer())
+        .get('/export/wasm/quick?limit=100001&seed=12345')
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
 
-    expect(response.headers['content-type']).toContain(
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    const body = response.body as Buffer;
-    expect(body.subarray(0, 2).toString()).toBe('PK');
-  });
+      expect(response.headers['content-type']).toContain(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      const body = response.body as Buffer;
+      expect(body.subarray(0, 2).toString()).toBe('PK');
+    },
+    BENCHMARK_TEST_TIMEOUT,
+  );
 
   it('/export/exceljs/download sanitizes file name in content disposition', async () => {
     const response = await request(app.getHttpServer())

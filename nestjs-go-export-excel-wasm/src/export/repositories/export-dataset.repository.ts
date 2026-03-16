@@ -104,43 +104,52 @@ export class ExportDatasetRepository {
     }
 
     let remaining = plan.total;
-    let lastId: number | undefined;
-    let firstSegment = true;
-    const baseWhere = plan.where as Prisma.EmployeeWhereInput;
+    let lastTailId: number | undefined;
+    let wrapBoundaryId: number | undefined;
+    let tailComplete = false;
+    let lastWrappedId: number | undefined;
 
     while (remaining > 0) {
       const take = Math.min(plan.batchSize, remaining);
-      const segmentWhere: Prisma.EmployeeWhereInput = lastId
-        ? {
-            AND: [baseWhere, { id: { gt: lastId } }],
-          }
-        : baseWhere;
-
+      const fetchingWrappedRows = tailComplete;
+      const where = fetchingWrappedRows
+        ? this.buildWrappedWhere(plan.where, wrapBoundaryId, lastWrappedId)
+        : this.buildTailWhere(plan.where, lastTailId);
+      const skip = fetchingWrappedRows || lastTailId ? 0 : plan.startOffset;
       const rows = await this.prisma.employee.findMany({
-        where: segmentWhere,
+        where,
         orderBy: { id: 'asc' },
-        skip: firstSegment ? plan.startOffset : 0,
+        skip,
         take,
       });
 
-      if (rows.length === 0 && firstSegment) {
-        firstSegment = false;
-        lastId = undefined;
+      if (rows.length === 0) {
+        if (fetchingWrappedRows) {
+          break;
+        }
+
+        tailComplete = true;
         continue;
       }
 
-      if (rows.length === 0) {
-        break;
+      if (!fetchingWrappedRows && wrapBoundaryId === undefined) {
+        wrapBoundaryId = rows[0]?.id;
       }
 
       remaining -= rows.length;
-      lastId = rows.at(-1)?.id;
-      yield rows.map((row) => this.pickColumns(this.mapEmployee(row), plan.columns));
 
-      if (firstSegment && rows.length < take) {
-        firstSegment = false;
-        lastId = undefined;
+      if (fetchingWrappedRows) {
+        lastWrappedId = rows.at(-1)?.id;
+      } else {
+        lastTailId = rows.at(-1)?.id;
+        if (rows.length < take) {
+          tailComplete = true;
+        }
       }
+
+      yield rows.map((row) =>
+        this.pickColumns(this.mapEmployee(row), plan.columns),
+      );
     }
   }
 
@@ -159,6 +168,37 @@ export class ExportDatasetRepository {
       hireDate: this.buildDateRange(filters.startDate, filters.endDate),
       totalSalary: this.buildNumberRange(filters.minSalary, filters.maxSalary),
     };
+  }
+
+  private buildTailWhere(
+    baseWhere: Prisma.EmployeeWhereInput | undefined,
+    lastTailId?: number,
+  ): Prisma.EmployeeWhereInput {
+    if (lastTailId === undefined) {
+      return baseWhere ?? {};
+    }
+
+    return {
+      AND: [baseWhere ?? {}, { id: { gt: lastTailId } }],
+    };
+  }
+
+  private buildWrappedWhere(
+    baseWhere: Prisma.EmployeeWhereInput | undefined,
+    wrapBoundaryId?: number,
+    lastWrappedId?: number,
+  ): Prisma.EmployeeWhereInput {
+    const and: Prisma.EmployeeWhereInput[] = [baseWhere ?? {}];
+
+    if (wrapBoundaryId !== undefined) {
+      and.push({ id: { lt: wrapBoundaryId } });
+    }
+
+    if (lastWrappedId !== undefined) {
+      and.push({ id: { gt: lastWrappedId } });
+    }
+
+    return and.length === 1 ? and[0] : { AND: and };
   }
 
   private buildDateRange(

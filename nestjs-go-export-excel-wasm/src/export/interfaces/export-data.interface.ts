@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import type { Writable } from 'stream';
 
 export interface ExportDataRow {
@@ -19,7 +20,7 @@ export interface ExportDatasetStreamPlan {
   effectiveLimit: number;
   totalMatching: number;
   startOffset: number;
-  where?: unknown;
+  where?: Prisma.EmployeeWhereInput;
 }
 
 export interface ExportData {

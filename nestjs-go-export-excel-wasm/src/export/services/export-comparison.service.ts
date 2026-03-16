@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createWriteStream, promises as fs } from 'fs';
+import { finished } from 'stream/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { Response } from 'express';
@@ -75,12 +76,13 @@ export class ExportComparisonService {
     options: ExportRequestDto,
   ): Promise<ExportExecutionResult & { buffer: Buffer }> {
     const plan = await this.dataGeneratorService.createStreamPlan(options);
-    const { result, buffer } = await this.exceljsExportService.exportPlanToBuffer(
-      plan,
-      this.dataGeneratorService.streamExportData(plan),
-      options.fileName ?? 'exceljs-export.xlsx',
-      options.sheetName,
-    );
+    const { result, buffer } =
+      await this.exceljsExportService.exportPlanToBuffer(
+        plan,
+        this.dataGeneratorService.streamExportData(plan),
+        options.fileName ?? 'exceljs-export.xlsx',
+        options.sheetName,
+      );
 
     return { ...result, buffer };
   }
@@ -102,7 +104,11 @@ export class ExportComparisonService {
     options: BenchmarkRequestDto,
   ): Promise<ExportBenchmarkResult> {
     const plan = await this.dataGeneratorService.createStreamPlan(options);
-    const exceljs = await this.exportVariantToTempFile('exceljs', plan, options);
+    const exceljs = await this.exportVariantToTempFile(
+      'exceljs',
+      plan,
+      options,
+    );
     const wasm = await this.exportVariantToTempFile('wasm', plan, options);
     const includeMemory = options.includeMemory ?? true;
     const exceljsSummary = this.toBenchmarkSummary(exceljs, includeMemory);
@@ -141,35 +147,36 @@ export class ExportComparisonService {
     const writable = createWriteStream(tempPath);
 
     try {
-      if (variant === 'exceljs') {
-        const result = await this.exceljsExportService.exportPlanToWritable(
-          plan,
-          this.dataGeneratorService.streamExportData(plan),
-          {
-            writable,
-            fileName: `benchmark-exceljs-${plan.seed}.xlsx`,
-            sheetName: options.sheetName,
-          },
-        );
-        return {
-          ...result,
-          sizeBytes: (await fs.stat(tempPath)).size,
-        };
+      const result =
+        variant === 'exceljs'
+          ? await this.exceljsExportService.exportPlanToWritable(
+              plan,
+              this.dataGeneratorService.streamExportData(plan),
+              {
+                writable,
+                fileName: `benchmark-exceljs-${plan.seed}.xlsx`,
+                sheetName: options.sheetName,
+              },
+            )
+          : await this.wasmExcelService.exportPlanToWritable(
+              plan,
+              this.dataGeneratorService.streamExportData(plan),
+              {
+                writable,
+                fileName: `benchmark-wasm-${plan.seed}.xlsx`,
+              },
+            );
+
+      if (!writable.writableFinished) {
+        await finished(writable);
       }
 
-      const result = await this.wasmExcelService.exportPlanToWritable(
-        plan,
-        this.dataGeneratorService.streamExportData(plan),
-        {
-          writable,
-          fileName: `benchmark-wasm-${plan.seed}.xlsx`,
-        },
-      );
       return {
         ...result,
         sizeBytes: (await fs.stat(tempPath)).size,
       };
     } finally {
+      writable.destroy();
       await fs.rm(tempPath, { force: true });
     }
   }

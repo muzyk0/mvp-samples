@@ -17,6 +17,13 @@ export class ExceljsExportService {
     const startTime = process.hrtime.bigint();
     const memoryBefore = process.memoryUsage().heapUsed;
 
+    let countedBytes = 0;
+    options.writable.on('data', (chunk: Buffer | string) => {
+      countedBytes += Buffer.isBuffer(chunk)
+        ? chunk.length
+        : Buffer.byteLength(chunk);
+    });
+
     const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
       stream: options.writable,
       useStyles: false,
@@ -45,7 +52,7 @@ export class ExceljsExportService {
 
     const memoryAfter = process.memoryUsage().heapUsed;
     const durationMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
-    const sizeBytes = Number((options.writable as NodeJS.WritableStream & { bytesWritten?: number }).bytesWritten ?? 0);
+    const sizeBytes = this.getWrittenByteCount(options.writable, countedBytes);
 
     return {
       variant: 'exceljs',
@@ -86,5 +93,16 @@ export class ExceljsExportService {
       },
       buffer,
     };
+  }
+
+  private getWrittenByteCount(
+    writable: StreamExportExecutionOptions['writable'],
+    countedBytes: number,
+  ): number {
+    const streamWithCounters = writable as NodeJS.WritableStream & {
+      bytesWritten?: number;
+    };
+
+    return Number(streamWithCounters.bytesWritten ?? countedBytes);
   }
 }

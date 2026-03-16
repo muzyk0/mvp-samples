@@ -58,6 +58,7 @@ export class WasmExcelService
       const runtime = await this.createRuntime();
       let rowCount = 0;
       let sizeBytes = 0;
+      let writableEnded = false;
 
       try {
         await runtime.waitUntilReady();
@@ -106,6 +107,7 @@ export class WasmExcelService
         ).goFinalizeExport();
         this.assertGoResult(finalizeResult, 'Ошибка завершения WASM экспорта');
         options.writable.end();
+        writableEnded = true;
 
         const memoryAfter = process.memoryUsage().heapUsed;
         const durationMs =
@@ -123,6 +125,9 @@ export class WasmExcelService
           memoryDeltaBytes: Math.max(0, memoryAfter - memoryBefore),
         };
       } finally {
+        if (!writableEnded && !options.writable.destroyed) {
+          options.writable.end();
+        }
         runtime.dispose();
       }
     });
@@ -171,6 +176,7 @@ export class WasmExcelService
     const result = await this.exportPlanToBuffer(
       plan,
       (async function* () {
+        await Promise.resolve();
         yield sampleData;
       })(),
       'wasm-test.xlsx',

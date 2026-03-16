@@ -76,6 +76,11 @@ func initExport(this js.Value, args []js.Value) interface{} {
 		headerValues[i] = header
 	}
 
+	if err := streamWriter.SetColWidth(1, len(goHeaders), 20); err != nil {
+		callback.Invoke(js.Null(), js.ValueOf("Ошибка настройки ширины столбцов: "+err.Error()))
+		return nil
+	}
+
 	cell, _ := excelize.CoordinatesToCellName(1, 1)
 	if err := streamWriter.SetRow(cell, headerValues); err != nil {
 		callback.Invoke(js.Null(), js.ValueOf("Ошибка записи заголовков: "+err.Error()))
@@ -180,8 +185,6 @@ func finalizeExport(this js.Value, args []js.Value) interface{} {
 		state.callback.Invoke(js.Null(), js.ValueOf("Ошибка завершения записи: "+err.Error()))
 		return nil
 	}
-
-	state.streamWriter.SetColWidth(1, len(state.headers), 20)
 
 	writer := &callbackChunkWriter{}
 	if err := state.file.Write(writer); err != nil {

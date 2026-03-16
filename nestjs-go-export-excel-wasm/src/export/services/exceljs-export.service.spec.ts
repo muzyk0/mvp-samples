@@ -17,6 +17,7 @@ describe('ExceljsExportService', () => {
     };
 
     const rows = (async function* () {
+      await Promise.resolve();
       yield [{ ID: 1, Name: 'Alice' }];
       yield [{ ID: 2, Name: 'Bob' }];
     })();
