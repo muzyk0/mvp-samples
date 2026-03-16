@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { once } from 'events';
+import { pipeline } from 'stream/promises';
 import type { Readable } from 'stream';
 import type { Response } from 'express';
 
@@ -31,8 +31,7 @@ export class StreamResponseService {
     contentType?: string,
   ): Promise<void> {
     this.prepareDownload(response, fileName, contentType);
-    readable.pipe(response);
-    await once(response, 'finish');
+    await pipeline(readable, response);
   }
 
   sendBuffer(

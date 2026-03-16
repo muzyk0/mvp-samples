@@ -192,8 +192,12 @@ func finalizeExport(this js.Value, args []js.Value) interface{} {
 		return nil
 	}
 
+	if err := state.file.Close(); err != nil {
+		state.callback.Invoke(js.Null(), js.ValueOf("Ошибка закрытия файла: "+err.Error()))
+		return nil
+	}
+
 	state.callback.Invoke(js.Null(), js.ValueOf("COMPLETE"))
-	state.file.Close()
 	state = nil
 	return nil
 }

@@ -12,12 +12,14 @@ describe('StreamResponseService', () => {
 
     service.prepareDownload(
       response,
-      'evil\r\nname";malicious.xlsx'.replace('\\r', '\r').replace('\\n', '\n'),
+      'evil\r\nname";malicious.xlsx'
+        .replace(/\\r/g, '\r')
+        .replace(/\\n/g, '\n'),
       'application/octet-stream',
     );
 
     expect(headers.get('Content-Disposition')).toBe(
-      'attachment; filename="evilname-malicious.xlsx"; filename*=UTF-8\'\'evilname-malicious.xlsx',
+      `attachment; filename="evilname-malicious.xlsx"; filename*=UTF-8''evilname-malicious.xlsx`,
     );
   });
 });

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { PassThrough } from 'stream';
+import { pipeline } from 'stream/promises';
 import {
   ExportDatasetStreamPlan,
   ExportExecutionResult,
@@ -16,16 +17,10 @@ export class ExceljsExportService {
   ): Promise<ExportExecutionResult> {
     const startTime = process.hrtime.bigint();
     const memoryBefore = process.memoryUsage().heapUsed;
-
-    let countedBytes = 0;
-    options.writable.on('data', (chunk: Buffer | string) => {
-      countedBytes += Buffer.isBuffer(chunk)
-        ? chunk.length
-        : Buffer.byteLength(chunk);
-    });
+    const countingStream = this.createCountingStream(options.writable);
 
     const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
-      stream: options.writable,
+      stream: countingStream.stream,
       useStyles: false,
       useSharedStrings: false,
     });
@@ -49,10 +44,14 @@ export class ExceljsExportService {
 
     worksheet.commit();
     await workbook.commit();
+    await countingStream.done;
 
     const memoryAfter = process.memoryUsage().heapUsed;
     const durationMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
-    const sizeBytes = this.getWrittenByteCount(options.writable, countedBytes);
+    const sizeBytes = this.getWrittenByteCount(
+      options.writable,
+      countingStream,
+    );
 
     return {
       variant: 'exceljs',
@@ -95,14 +94,48 @@ export class ExceljsExportService {
     };
   }
 
+  private createCountingStream(
+    writable: StreamExportExecutionOptions['writable'],
+  ): {
+    stream: StreamExportExecutionOptions['writable'];
+    done: Promise<void>;
+    getCount: () => number;
+  } {
+    const streamWithCounters = writable as NodeJS.WritableStream & {
+      bytesWritten?: number;
+    };
+
+    if (typeof streamWithCounters.bytesWritten === 'number') {
+      return {
+        stream: writable,
+        done: Promise.resolve(),
+        getCount: () => streamWithCounters.bytesWritten ?? 0,
+      };
+    }
+
+    let countedBytes = 0;
+    const countingStream = new PassThrough();
+    countingStream.on('data', (chunk: Buffer | string) => {
+      countedBytes += Buffer.isBuffer(chunk)
+        ? chunk.length
+        : Buffer.byteLength(chunk);
+    });
+
+    return {
+      stream: countingStream,
+      done: pipeline(countingStream, writable),
+      getCount: () => countedBytes,
+    };
+  }
+
   private getWrittenByteCount(
     writable: StreamExportExecutionOptions['writable'],
-    countedBytes: number,
+    countingStream: ReturnType<ExceljsExportService['createCountingStream']>,
   ): number {
     const streamWithCounters = writable as NodeJS.WritableStream & {
       bytesWritten?: number;
     };
 
-    return Number(streamWithCounters.bytesWritten ?? countedBytes);
+    return Number(streamWithCounters.bytesWritten ?? countingStream.getCount());
   }
 }

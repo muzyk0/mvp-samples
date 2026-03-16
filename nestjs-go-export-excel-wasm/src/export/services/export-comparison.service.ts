@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createWriteStream, promises as fs } from 'fs';
+import { once } from 'events';
 import { finished } from 'stream/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -171,12 +172,18 @@ export class ExportComparisonService {
         await finished(writable);
       }
 
+      await this.waitForWritableClose(writable);
+
       return {
         ...result,
         sizeBytes: (await fs.stat(tempPath)).size,
       };
     } finally {
-      writable.destroy();
+      if (!writable.closed && !writable.destroyed) {
+        writable.destroy();
+      }
+
+      await this.waitForWritableClose(writable);
       await fs.rm(tempPath, { force: true });
     }
   }
@@ -191,5 +198,15 @@ export class ExportComparisonService {
         ? { memoryDeltaBytes: result.memoryDeltaBytes }
         : { memoryDeltaBytes: undefined }),
     };
+  }
+
+  private async waitForWritableClose(
+    writable: ReturnType<typeof createWriteStream>,
+  ): Promise<void> {
+    if (writable.closed) {
+      return;
+    }
+
+    await once(writable, 'close');
   }
 }
