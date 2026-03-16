@@ -115,10 +115,18 @@ describe('Export comparison app (e2e)', () => {
       .expect(400);
   });
 
-  it('/export/wasm/quick rejects excessive limit', async () => {
-    await request(app.getHttpServer())
+  it('/export/wasm/quick accepts large limit values', async () => {
+    const response = await request(app.getHttpServer())
       .get('/export/wasm/quick?limit=100001&seed=12345')
-      .expect(400);
+      .buffer(true)
+      .parse(binaryParser)
+      .expect(200);
+
+    expect(response.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    const body = response.body as Buffer;
+    expect(body.subarray(0, 2).toString()).toBe('PK');
   });
 
   it('/export/exceljs/download sanitizes file name in content disposition', async () => {
@@ -170,6 +178,22 @@ describe('Export comparison app (e2e)', () => {
     expect(response.body.wasm.memoryDeltaBytes).toBeUndefined();
     expect(response.body.delta.memoryDeltaBytes).toBeUndefined();
   });
+
+  it(
+    '/export/benchmark preserves explicit large request.limit while rowCount reflects actual rows',
+    async () => {
+      const response = await request(app.getHttpServer())
+        .post('/export/benchmark')
+        .send({ limit: 100001, seed: 12345, includeMemory: false })
+        .expect(201);
+
+      expect(response.body.request.limit).toBe(100001);
+      expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(100001);
+      expect(response.body.wasm.rowCount).toBeLessThanOrEqual(100001);
+      expect(response.body.exceljs.rowCount).toBe(response.body.wasm.rowCount);
+    },
+    BENCHMARK_TEST_TIMEOUT,
+  );
 
   it('/export/exceljs/download rejects invalid filter dates', async () => {
     await request(app.getHttpServer())

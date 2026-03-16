@@ -44,7 +44,6 @@ export const DEFAULT_EXPORT_LIMIT = 10_000;
 export const DEFAULT_EXPORT_OFFSET = 0;
 export const DEFAULT_EXPORT_BATCH_SIZE = 500;
 export const DEFAULT_EXPORT_SEED = 12_345;
-export const MAX_EXPORT_LIMIT = 100_000;
 export const MAX_EXPORT_BATCH_SIZE = 10_000;
 
 export const DEFAULT_BENCHMARK_OPTIONS: BenchmarkRequestDto = {
@@ -64,7 +63,6 @@ export class ExportRequestDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(MAX_EXPORT_LIMIT)
   limit?: number = DEFAULT_EXPORT_LIMIT;
 
   @IsOptional()

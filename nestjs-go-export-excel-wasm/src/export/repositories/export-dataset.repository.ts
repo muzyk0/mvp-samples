@@ -62,10 +62,7 @@ export class ExportDatasetRepository {
   ): Promise<ExportDatasetStreamPlan> {
     const columns = this.sanitizeColumns(options.columns);
     const effectiveLimit = options.limit ?? DEFAULT_EXPORT_LIMIT;
-    const batchSize = Math.min(
-      options.batchSize ?? DEFAULT_EXPORT_BATCH_SIZE,
-      effectiveLimit,
-    );
+    const batchSize = options.batchSize ?? DEFAULT_EXPORT_BATCH_SIZE;
     const where = this.buildWhere(options.filters);
     const seed = options.seed ?? DEFAULT_EXPORT_SEED;
     const totalMatching = await this.prisma.employee.count({ where });

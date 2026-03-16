@@ -110,7 +110,7 @@ export class ExportComparisonService {
 
     return {
       request: {
-        limit: plan.total,
+        limit: plan.effectiveLimit,
         seed: plan.seed,
         columns: plan.columns,
       },
