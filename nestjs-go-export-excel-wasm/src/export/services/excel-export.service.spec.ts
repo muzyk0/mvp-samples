@@ -1,8 +1,12 @@
-import { HttpException } from '@nestjs/common';
-import { describe, expect, it, vi } from 'vitest';
+import { HttpException, Logger } from '@nestjs/common';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExcelExportService } from './excel-export.service';
 
 describe('ExcelExportService', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   const createService = (
     exportWithWasm: (options: unknown) => Promise<{
       buffer: Buffer;
@@ -30,6 +34,9 @@ describe('ExcelExportService', () => {
   });
 
   it('wraps unexpected exporter errors as internal server errors', async () => {
+    const loggerError = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
     const service = createService(() => Promise.reject(new Error('boom')));
 
     await expect(
@@ -38,5 +45,10 @@ describe('ExcelExportService', () => {
       status: 500,
       message: 'Ошибка при экспорте: boom',
     });
+
+    expect(loggerError).toHaveBeenCalledWith(
+      'WASM export failed: boom',
+      expect.any(String),
+    );
   });
 });
