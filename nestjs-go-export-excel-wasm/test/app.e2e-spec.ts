@@ -21,7 +21,6 @@ describe('Export comparison app (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { AppModule } = await import('../src/app.module.js');
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],

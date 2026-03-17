@@ -1,4 +1,4 @@
-import { HttpException, InternalServerErrorException } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { ExcelExportService } from './excel-export.service';
 
