@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { ExportDatasetRepository } from './export-dataset.repository';
 
 describe('ExportDatasetRepository', () => {
@@ -27,8 +28,8 @@ describe('ExportDatasetRepository', () => {
 
     const prisma = {
       employee: {
-        count: jest.fn().mockResolvedValue(rows.length),
-        findMany: jest
+        count: vi.fn().mockResolvedValue(rows.length),
+        findMany: vi
           .fn()
           .mockImplementation(
             ({

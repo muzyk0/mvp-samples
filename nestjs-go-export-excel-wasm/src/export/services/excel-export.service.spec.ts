@@ -1,4 +1,5 @@
 import { HttpException, InternalServerErrorException } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
 import { ExcelExportService } from './excel-export.service';
 
 describe('ExcelExportService', () => {
@@ -15,7 +16,7 @@ describe('ExcelExportService', () => {
       } as never,
       {} as never,
       {
-        sendBuffer: jest.fn(),
+        sendBuffer: vi.fn(),
       } as never,
     );
 

@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { StreamResponseService } from './stream-response.service';
 
 describe('StreamResponseService', () => {
@@ -5,7 +6,7 @@ describe('StreamResponseService', () => {
     const service = new StreamResponseService();
     const headers = new Map<string, string>();
     const response = {
-      setHeader: jest.fn((name: string, value: string | number) => {
+      setHeader: vi.fn((name: string, value: string | number) => {
         headers.set(name, String(value));
       }),
     } as never;

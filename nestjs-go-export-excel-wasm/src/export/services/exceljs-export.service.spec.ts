@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { PassThrough, Writable } from 'stream';
 import { ExceljsExportService } from './exceljs-export.service';
 import { ExportDatasetStreamPlan } from '../interfaces/export-data.interface';
+import { describe, it, expect } from 'vitest';
 
 describe('ExceljsExportService', () => {
   const service = new ExceljsExportService();

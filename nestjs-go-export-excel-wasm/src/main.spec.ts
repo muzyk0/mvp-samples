@@ -1,13 +1,14 @@
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { createCorsOriginDelegate } from './main';
 
-type DelegateResult = { error: Error | null; allow?: boolean; warn: jest.Mock };
+type DelegateResult = { error: Error | null; allow?: boolean; warn: Mock };
 
 describe('createCorsOriginDelegate', () => {
   const invoke = (
     allowedOrigins: string[],
     origin?: string,
   ): DelegateResult => {
-    const warn = jest.fn();
+    const warn = vi.fn();
     const delegate = createCorsOriginDelegate(allowedOrigins, { warn });
     let error: Error | null = null;
     let allow: boolean | undefined;

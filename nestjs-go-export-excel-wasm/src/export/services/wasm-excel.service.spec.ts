@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { WasmExcelService } from './wasm-excel.service';
 import { ExportDatasetStreamPlan } from '../interfaces/export-data.interface';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 describe('WasmExcelService', () => {
   let service: WasmExcelService;

@@ -1,8 +1,8 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
 
 const BENCHMARK_TEST_TIMEOUT = 20_000;
 
@@ -21,6 +21,7 @@ describe('Export comparison app (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
+    const { AppModule } = await import('../dist/src/app.module.js');
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
