@@ -9,7 +9,7 @@ const BENCHMARK_TEST_TIMEOUT = 20_000;
 const binaryParser = (
   res: NodeJS.ReadableStream,
   callback: (error: Error | null, body: Buffer) => void,
-) => {
+): void => {
   const chunks: Buffer[] = [];
 
   res.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -22,7 +22,7 @@ describe('Export comparison app (e2e)', () => {
 
   beforeEach(async () => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { AppModule } = await import('../src/app.module');
+    const { AppModule } = await import('../src/app.module.js');
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -79,7 +79,7 @@ describe('Export comparison app (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/export/exceljs/download')
       .buffer(true)
-      .parse(binaryParser)
+      .parse(binaryParser as never)
       .send({ limit: 5, seed: 12345, fileName: 'exceljs-check.xlsx' })
       .expect(201);
 
@@ -97,7 +97,7 @@ describe('Export comparison app (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/export/wasm/download')
       .buffer(true)
-      .parse(binaryParser)
+      .parse(binaryParser as never)
       .send({ limit: 5, seed: 12345, fileName: 'wasm-check.xlsx' })
       .expect(201);
 
@@ -123,7 +123,7 @@ describe('Export comparison app (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get('/export/wasm/quick?limit=100001&seed=12345')
         .buffer(true)
-        .parse(binaryParser)
+        .parse(binaryParser as never)
         .expect(200);
 
       expect(response.headers['content-type']).toContain(
@@ -139,7 +139,7 @@ describe('Export comparison app (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/export/exceljs/download')
       .buffer(true)
-      .parse(binaryParser)
+      .parse(binaryParser as never)
       .send({
         limit: 5,
         seed: 12345,

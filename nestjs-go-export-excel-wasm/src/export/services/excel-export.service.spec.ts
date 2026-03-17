@@ -34,11 +34,9 @@ describe('ExcelExportService', () => {
 
     await expect(
       service.exportToResponse({} as never, { limit: 1 } as never),
-    ).rejects.toEqual(
-      expect.objectContaining<Partial<InternalServerErrorException>>({
-        status: 500,
-        message: 'Ошибка при экспорте: boom',
-      }),
-    );
+    ).rejects.toMatchObject({
+      status: 500,
+      message: 'Ошибка при экспорте: boom',
+    });
   });
 });
