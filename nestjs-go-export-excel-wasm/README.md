@@ -52,10 +52,10 @@ Sample для честного сравнения двух **streaming Excel exp
 ## Prisma / SQLite setup
 
 ```bash
-npm install
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
+bun install
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
 ```
 
 По умолчанию используется `DATABASE_URL="file:./prisma/dev.db"`.
@@ -75,7 +75,7 @@ npm run prisma:seed
 Пример большого batched seed:
 
 ```bash
-SEED_EMPLOYEE_COUNT=200000 SEED_BATCH_SIZE=1000 npm run prisma:seed
+SEED_EMPLOYEE_COUNT=200000 SEED_BATCH_SIZE=1000 bun run prisma:seed
 ```
 
 ## WASM build
@@ -84,19 +84,19 @@ SEED_EMPLOYEE_COUNT=200000 SEED_BATCH_SIZE=1000 npm run prisma:seed
 
 ```bash
 export PATH="/home/admin/.openclaw/workspace/tools/go/bin:$PATH"
-npm run build:wasm
+bun run build:wasm
 ```
 
 ## Запуск
 
 ```bash
-npm install
+bun install
 export PATH="/home/admin/.openclaw/workspace/tools/go/bin:$PATH" # если нужен rebuild wasm
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-npm run build
-npm run start:dev
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
+bun run build
+bun run start:dev
 ```
 
 ## Примеры
@@ -140,7 +140,7 @@ curl -X POST http://localhost:3000/export/benchmark \
 ### Scripted benchmark
 
 ```bash
-npm run test:comparison
+bun run test:comparison
 ```
 
 Скрипт ожидает поднятое приложение на `BASE_URL` (по умолчанию `http://localhost:3000`) и вызывает `POST /export/benchmark`.
@@ -149,11 +149,11 @@ npm run test:comparison
 
 ```bash
 export PATH="/home/admin/.openclaw/workspace/tools/go/bin:$PATH" # если пересобираешь wasm
-npm run build:wasm
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-npm run build
-npm test -- --runInBand
-npm run test:e2e -- --runInBand
+bun run build:wasm
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
+bun run build
+bun run test -- --runInBand
+bun run test:e2e -- --runInBand
 ```
