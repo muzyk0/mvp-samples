@@ -80,6 +80,8 @@ SEED_EMPLOYEE_COUNT=200000 SEED_BATCH_SIZE=1000 bun run prisma:seed
 
 ## WASM build
 
+`excel-streamer/excel_bridge.wasm` и `excel-streamer/wasm_exec.js` — это **сгенерированные build-артефакты**. Они не должны храниться в git: их нужно собирать локально, в CI или на этапе деплоя.
+
 В окружениях, где Go не в `PATH`, перед сборкой добавь его вручную:
 
 ```bash
@@ -154,6 +156,6 @@ bun run prisma:generate
 bun run prisma:migrate
 bun run prisma:seed
 bun run build
-bun run test -- --runInBand
-bun run test:e2e -- --runInBand
+bun run test
+bun run test:e2e
 ```
