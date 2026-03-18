@@ -50,7 +50,7 @@ export class WasmExcelService
     rows: AsyncGenerator<Record<string, any>[]>,
     options: StreamExportExecutionOptions,
   ): Promise<ExportExecutionResult> {
-    const initializedHeaders = await this.initializeExport(plan.columns);
+    const initialized = await this.initializeExport(plan.columns, plan.total);
 
     return this.enqueue(async () => {
       const startTime = process.hrtime.bigint();
@@ -89,8 +89,9 @@ export class WasmExcelService
         };
 
         const initResult = (global as Record<string, any>).goInitExport(
-          initializedHeaders,
+          initialized.headers,
           callback,
+          initialized.expectedTotalRows,
         );
         this.assertGoResult(initResult, 'Ошибка инициализации WASM');
 
@@ -184,13 +185,19 @@ export class WasmExcelService
     return result.result.sizeBytes > 0;
   }
 
-  async initializeExport(headers: string[]): Promise<string[]> {
+  async initializeExport(
+    headers: string[],
+    expectedTotalRows?: number,
+  ): Promise<{ headers: string[]; expectedTotalRows: number }> {
     if (!Array.isArray(headers) || headers.length === 0) {
       throw new ServiceUnavailableException('WASM export headers are required');
     }
 
     await this.ensureWasmLoaded();
-    return [...headers];
+    return {
+      headers: [...headers],
+      expectedTotalRows: Math.max(0, expectedTotalRows ?? 0),
+    };
   }
 
   getStatus(): { queued: boolean; hasBinary: boolean } {

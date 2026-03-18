@@ -25,13 +25,14 @@ func (w *callbackChunkWriter) Write(p []byte) (int, error) {
 }
 
 type ExportState struct {
-	file         *excelize.File
-	streamWriter *excelize.StreamWriter
-	currentRow   int
-	sentBytes    int
-	callback     js.Value
-	headers      []string
-	totalRows    int
+	file              *excelize.File
+	streamWriter      *excelize.StreamWriter
+	currentRow        int
+	sentBytes         int
+	callback          js.Value
+	headers           []string
+	totalRows         int
+	expectedTotalRows int
 }
 
 var state *ExportState
@@ -69,11 +70,16 @@ func initExport(this js.Value, args []js.Value) interface{} {
 
 	goHeaders := make([]string, headers.Length())
 	headerValues := make([]interface{}, headers.Length())
+	expectedTotalRows := 0
 
 	for i := 0; i < headers.Length(); i++ {
 		header := headers.Index(i).String()
 		goHeaders[i] = header
 		headerValues[i] = header
+	}
+
+	if len(args) > 2 && args[2].Type() == js.TypeNumber {
+		expectedTotalRows = args[2].Int()
 	}
 
 	if err := streamWriter.SetColWidth(1, len(goHeaders), 20); err != nil {
@@ -88,12 +94,13 @@ func initExport(this js.Value, args []js.Value) interface{} {
 	}
 
 	state = &ExportState{
-		file:         f,
-		streamWriter: streamWriter,
-		currentRow:   2,
-		callback:     callback,
-		headers:      goHeaders,
-		totalRows:    0,
+		file:              f,
+		streamWriter:      streamWriter,
+		currentRow:        2,
+		callback:          callback,
+		headers:           goHeaders,
+		totalRows:         0,
+		expectedTotalRows: expectedTotalRows,
 	}
 
 	callback.Invoke(js.Null(), js.ValueOf("INIT_OK"))
@@ -135,7 +142,12 @@ func writeRows(this js.Value, args []js.Value) interface{} {
 		state.totalRows++
 	}
 
-	status := fmt.Sprintf("ROW_PROGRESS:%d:%d", state.totalRows, state.totalRows)
+	totalForProgress := state.expectedTotalRows
+	if totalForProgress <= 0 || totalForProgress < state.totalRows {
+		totalForProgress = state.totalRows
+	}
+
+	status := fmt.Sprintf("ROW_PROGRESS:%d:%d", state.totalRows, totalForProgress)
 	state.callback.Invoke(js.Null(), js.ValueOf(status))
 	return nil
 }
@@ -181,24 +193,32 @@ func finalizeExport(this js.Value, args []js.Value) interface{} {
 		return js.ValueOf("Экспорт не инициализирован")
 	}
 
-	if err := state.streamWriter.Flush(); err != nil {
-		state.callback.Invoke(js.Null(), js.ValueOf("Ошибка завершения записи: "+err.Error()))
+	s := state
+	defer func() {
+		if s != nil && s.file != nil {
+			_ = s.file.Close()
+		}
+		state = nil
+	}()
+
+	if err := s.streamWriter.Flush(); err != nil {
+		s.callback.Invoke(js.Null(), js.ValueOf("Ошибка завершения записи: "+err.Error()))
 		return nil
 	}
 
 	writer := &callbackChunkWriter{}
-	if err := state.file.Write(writer); err != nil {
-		state.callback.Invoke(js.Null(), js.ValueOf("Ошибка сохранения файла: "+err.Error()))
+	if err := s.file.Write(writer); err != nil {
+		s.callback.Invoke(js.Null(), js.ValueOf("Ошибка сохранения файла: "+err.Error()))
 		return nil
 	}
 
-	if err := state.file.Close(); err != nil {
-		state.callback.Invoke(js.Null(), js.ValueOf("Ошибка закрытия файла: "+err.Error()))
+	if err := s.file.Close(); err != nil {
+		s.callback.Invoke(js.Null(), js.ValueOf("Ошибка закрытия файла: "+err.Error()))
 		return nil
 	}
+	s.file = nil
 
-	state.callback.Invoke(js.Null(), js.ValueOf("COMPLETE"))
-	state = nil
+	s.callback.Invoke(js.Null(), js.ValueOf("COMPLETE"))
 	return nil
 }
 
