@@ -9,10 +9,12 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-type callbackChunkWriter struct{}
+type callbackChunkWriter struct {
+	exportState *ExportState
+}
 
 func (w *callbackChunkWriter) Write(p []byte) (int, error) {
-	s := state
+	s := w.exportState
 	if s == nil || s.callback.IsUndefined() || s.callback.IsNull() {
 		return 0, fmt.Errorf("callback is not initialized")
 	}
@@ -207,7 +209,7 @@ func finalizeExport(this js.Value, args []js.Value) interface{} {
 		return nil
 	}
 
-	writer := &callbackChunkWriter{}
+	writer := &callbackChunkWriter{exportState: s}
 	if err := s.file.Write(writer); err != nil {
 		s.callback.Invoke(js.Null(), js.ValueOf("Ошибка сохранения файла: "+err.Error()))
 		return nil

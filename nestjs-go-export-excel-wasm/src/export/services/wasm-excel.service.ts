@@ -60,6 +60,7 @@ export class WasmExcelService
       let rowCount = 0;
       let sizeBytes = 0;
       let writableEnded = false;
+      let writeChain = Promise.resolve();
 
       try {
         await runtime.waitUntilReady();
@@ -81,7 +82,24 @@ export class WasmExcelService
             if (chunk && chunk.length > 0) {
               const buffer = Buffer.from(chunk);
               sizeBytes += buffer.length;
-              options.writable.write(buffer);
+              writeChain = writeChain.then(async () => {
+                const accepted = options.writable.write(buffer);
+                if (!accepted) {
+                  await new Promise<void>((resolve, reject) => {
+                    const onDrain = () => {
+                      options.writable.off('error', onError);
+                      resolve();
+                    };
+                    const onError = (error: Error) => {
+                      options.writable.off('drain', onDrain);
+                      reject(error);
+                    };
+
+                    options.writable.once('drain', onDrain);
+                    options.writable.once('error', onError);
+                  });
+                }
+              });
             }
             return;
           }
@@ -108,6 +126,7 @@ export class WasmExcelService
           global as Record<string, any>
         ).goFinalizeExport();
         this.assertGoResult(finalizeResult, 'Ошибка завершения WASM экспорта');
+        await writeChain;
         options.writable.end();
         writableEnded = true;
 
