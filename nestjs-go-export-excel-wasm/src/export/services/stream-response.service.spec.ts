@@ -13,9 +13,7 @@ describe('StreamResponseService', () => {
 
     service.prepareDownload(
       response,
-      'evil\r\nname";malicious.xlsx'
-        .replace(/\\r/g, '\r')
-        .replace(/\\n/g, '\n'),
+      'evil\r\nname";malicious.xlsx',
       'application/octet-stream',
     );
 

@@ -62,7 +62,11 @@ describe('ExportDatasetRepository', () => {
       },
     };
 
-    const repository = new ExportDatasetRepository(prisma as never);
+    const repository = new ExportDatasetRepository(
+      prisma as unknown as ConstructorParameters<
+        typeof ExportDatasetRepository
+      >[0],
+    );
     const plan = await repository.createStreamPlan({
       limit: 5,
       batchSize: 2,

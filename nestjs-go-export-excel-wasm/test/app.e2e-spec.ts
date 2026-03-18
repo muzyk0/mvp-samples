@@ -6,7 +6,9 @@ import request from 'supertest';
 
 const BENCHMARK_TEST_TIMEOUT = 20_000;
 
-const binaryParser = (
+type SupertestBinaryParser = Parameters<ReturnType<typeof request>['parse']>[0];
+
+const binaryParser: SupertestBinaryParser = (
   res: NodeJS.ReadableStream,
   callback: (error: Error | null, body: Buffer) => void,
 ): void => {
@@ -21,6 +23,7 @@ describe('Export comparison app (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
+    // Dynamic import keeps AppModule loading compatible with the ESM Vitest/Bun setup.
     const { AppModule } = await import('../src/app.module.js');
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -78,7 +81,7 @@ describe('Export comparison app (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/export/exceljs/download')
       .buffer(true)
-      .parse(binaryParser as never)
+      .parse(binaryParser)
       .send({ limit: 5, seed: 12345, fileName: 'exceljs-check.xlsx' })
       .expect(201);
 
@@ -96,7 +99,7 @@ describe('Export comparison app (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/export/wasm/download')
       .buffer(true)
-      .parse(binaryParser as never)
+      .parse(binaryParser)
       .send({ limit: 5, seed: 12345, fileName: 'wasm-check.xlsx' })
       .expect(201);
 
@@ -122,7 +125,7 @@ describe('Export comparison app (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get('/export/wasm/quick?limit=100001&seed=12345')
         .buffer(true)
-        .parse(binaryParser as never)
+        .parse(binaryParser)
         .expect(200);
 
       expect(response.headers['content-type']).toContain(
@@ -138,7 +141,7 @@ describe('Export comparison app (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/export/exceljs/download')
       .buffer(true)
-      .parse(binaryParser as never)
+      .parse(binaryParser)
       .send({
         limit: 5,
         seed: 12345,
@@ -193,7 +196,9 @@ describe('Export comparison app (e2e)', () => {
         .expect(201);
 
       expect(response.body.request.limit).toBe(100001);
+      expect(response.body.exceljs.rowCount).toBeGreaterThan(0);
       expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(100001);
+      expect(response.body.wasm.rowCount).toBeGreaterThan(0);
       expect(response.body.wasm.rowCount).toBeLessThanOrEqual(100001);
       expect(response.body.exceljs.rowCount).toBe(response.body.wasm.rowCount);
     },

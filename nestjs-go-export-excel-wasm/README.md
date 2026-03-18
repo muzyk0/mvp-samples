@@ -82,10 +82,10 @@ SEED_EMPLOYEE_COUNT=200000 SEED_BATCH_SIZE=1000 bun run prisma:seed
 
 `excel-streamer/excel_bridge.wasm` и `excel-streamer/wasm_exec.js` — это **сгенерированные build-артефакты**. Они не должны храниться в git: их нужно собирать локально, в CI или на этапе деплоя.
 
-В окружениях, где Go не в `PATH`, перед сборкой добавь его вручную:
+В окружениях, где Go не в `PATH`, сначала добавь его в `PATH` удобным для твоей системы способом, затем собери WASM:
 
 ```bash
-export PATH="/home/admin/.openclaw/workspace/tools/go/bin:$PATH"
+export PATH="/path/to/go/bin:$PATH"
 bun run build:wasm
 ```
 
@@ -93,7 +93,7 @@ bun run build:wasm
 
 ```bash
 bun install
-export PATH="/home/admin/.openclaw/workspace/tools/go/bin:$PATH" # если нужен rebuild wasm
+export PATH="/path/to/go/bin:$PATH" # если нужен rebuild wasm
 bun run prisma:generate
 bun run prisma:migrate
 bun run prisma:seed
@@ -150,7 +150,7 @@ bun run test:comparison
 ## Проверка локально
 
 ```bash
-export PATH="/home/admin/.openclaw/workspace/tools/go/bin:$PATH" # если пересобираешь wasm
+export PATH="/path/to/go/bin:$PATH" # если пересобираешь wasm
 bun run build:wasm
 bun run prisma:generate
 bun run prisma:migrate

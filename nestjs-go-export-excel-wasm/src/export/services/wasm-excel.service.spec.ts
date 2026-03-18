@@ -45,7 +45,7 @@ describe('WasmExcelService', () => {
     expect(buffer.subarray(0, 2).toString()).toBe('PK');
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(Buffer.from(buffer) as never);
+    await workbook.xlsx.load(Buffer.from(buffer));
     const worksheet = workbook.worksheets[0];
 
     expect(worksheet).toBeDefined();

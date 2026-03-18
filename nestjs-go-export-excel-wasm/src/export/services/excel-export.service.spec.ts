@@ -41,9 +41,13 @@ describe('ExcelExportService', () => {
 
     await expect(
       service.exportToResponse({} as never, { limit: 1 } as never),
-    ).rejects.toMatchObject({
-      status: 500,
-      message: 'Ошибка при экспорте: boom',
+    ).rejects.toSatisfy((error: unknown) => {
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(500);
+      expect((error as HttpException).message).toBe(
+        'Ошибка при экспорте: boom',
+      );
+      return true;
     });
 
     expect(loggerError).toHaveBeenCalledWith(
