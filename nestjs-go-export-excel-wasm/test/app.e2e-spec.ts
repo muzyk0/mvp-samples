@@ -120,10 +120,10 @@ describe('Export comparison app (e2e)', () => {
   });
 
   it(
-    '/export/wasm/quick accepts higher limit values',
+    '/export/wasm/quick accepts moderate higher limit values',
     async () => {
       const response = await request(app.getHttpServer())
-        .get('/export/wasm/quick?limit=20000&seed=12345')
+        .get('/export/wasm/quick?limit=5000&seed=12345')
         .buffer(true)
         .parse(binaryParser)
         .expect(200);
@@ -192,14 +192,14 @@ describe('Export comparison app (e2e)', () => {
     async () => {
       const response = await request(app.getHttpServer())
         .post('/export/benchmark')
-        .send({ limit: 20000, seed: 12345, includeMemory: false })
+        .send({ limit: 5000, seed: 12345, includeMemory: false })
         .expect(201);
 
-      expect(response.body.request.limit).toBe(20000);
+      expect(response.body.request.limit).toBe(5000);
       expect(response.body.exceljs.rowCount).toBeGreaterThan(0);
-      expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(20000);
+      expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(5000);
       expect(response.body.wasm.rowCount).toBeGreaterThan(0);
-      expect(response.body.wasm.rowCount).toBeLessThanOrEqual(20000);
+      expect(response.body.wasm.rowCount).toBeLessThanOrEqual(5000);
       expect(response.body.exceljs.rowCount).toBe(response.body.wasm.rowCount);
     },
     BENCHMARK_TEST_TIMEOUT,

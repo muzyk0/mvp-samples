@@ -12,15 +12,16 @@ import (
 type callbackChunkWriter struct{}
 
 func (w *callbackChunkWriter) Write(p []byte) (int, error) {
-	if state == nil || state.callback.IsUndefined() || state.callback.IsNull() {
+	s := state
+	if s == nil || s.callback.IsUndefined() || s.callback.IsNull() {
 		return 0, fmt.Errorf("callback is not initialized")
 	}
 
 	jsArray := js.Global().Get("Uint8Array").New(len(p))
 	js.CopyBytesToJS(jsArray, p)
-	state.sentBytes += len(p)
-	status := fmt.Sprintf("BYTES:%d", state.sentBytes)
-	state.callback.Invoke(jsArray, js.ValueOf(status))
+	s.sentBytes += len(p)
+	status := fmt.Sprintf("BYTES:%d", s.sentBytes)
+	s.callback.Invoke(jsArray, js.ValueOf(status))
 	return len(p), nil
 }
 

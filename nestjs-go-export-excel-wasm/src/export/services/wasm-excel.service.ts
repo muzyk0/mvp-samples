@@ -9,6 +9,7 @@ import {
 import { existsSync, promises as fs } from 'fs';
 import { join } from 'path';
 import { PassThrough } from 'stream';
+import { finished } from 'stream/promises';
 import {
   ExportDatasetStreamPlan,
   ExportExecutionResult,
@@ -149,6 +150,7 @@ export class WasmExcelService
       writable: stream,
       fileName,
     });
+    await finished(stream);
     const buffer = Buffer.concat(chunks);
 
     return {
@@ -387,8 +389,6 @@ export class WasmExcelService
     delete (global as Record<string, any>).goInitExport;
     delete (global as Record<string, any>).goWriteRows;
     delete (global as Record<string, any>).goFinalizeExport;
-    delete (global as Record<string, any>).goSetChunkSize;
-    delete (global as Record<string, any>).goGetProgress;
   }
 
   private resolveWasmAssetsDir(): string {
