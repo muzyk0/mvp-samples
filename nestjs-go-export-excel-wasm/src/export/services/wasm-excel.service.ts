@@ -60,6 +60,7 @@ export class WasmExcelService
       let rowCount = 0;
       let sizeBytes = 0;
       let writableEnded = false;
+      let exportError: Error | null = null;
       let writeChain = Promise.resolve();
 
       try {
@@ -159,10 +160,17 @@ export class WasmExcelService
           columnCount: plan.columns.length,
           memoryDeltaBytes: Math.max(0, memoryAfter - memoryBefore),
         };
+      } catch (error) {
+        exportError = error instanceof Error ? error : new Error(String(error));
+        throw error;
       } finally {
         await writeChain.catch(() => undefined);
         if (!writableEnded && !options.writable.destroyed) {
-          options.writable.end();
+          if (exportError) {
+            options.writable.destroy(exportError);
+          } else {
+            options.writable.end();
+          }
         }
         runtime.dispose();
       }

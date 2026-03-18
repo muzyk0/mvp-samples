@@ -41,6 +41,10 @@ type ExportState struct {
 var state *ExportState
 
 func initExport(this js.Value, args []js.Value) interface{} {
+	if state != nil {
+		return js.ValueOf("Экспорт уже инициализирован. Сначала вызовите goFinalizeExport.")
+	}
+
 	if len(args) < 2 {
 		return js.ValueOf("Недостаточно аргументов: требуется headers и callback")
 	}
