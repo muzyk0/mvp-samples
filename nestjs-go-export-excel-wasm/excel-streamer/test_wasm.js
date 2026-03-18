@@ -82,6 +82,7 @@ async function testStreamingWasm() {
         // Переменные для отслеживания состояния
         let isComplete = false;
         let errorOccurred = false;
+        let waitingDrain = false;
 
         // Callback для получения данных от Go
         const receiveChunk = (chunkData, status) => {
@@ -102,9 +103,10 @@ async function testStreamingWasm() {
 
                 // Записываем в файл
                 const buffer = Buffer.from(chunkData);
-                if (!excelWriter.write(buffer)) {
+                if (!excelWriter.write(buffer) && !waitingDrain) {
+                    waitingDrain = true;
                     excelWriter.once('drain', () => {
-                        // Буфер очищен
+                        waitingDrain = false;
                     });
                 }
 
