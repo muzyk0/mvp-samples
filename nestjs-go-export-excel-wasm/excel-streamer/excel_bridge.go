@@ -201,7 +201,9 @@ func finalizeExport(this js.Value, args []js.Value) interface{} {
 		if s != nil && s.file != nil {
 			_ = s.file.Close()
 		}
-		state = nil
+		if state == s {
+			state = nil
+		}
 	}()
 
 	if err := s.streamWriter.Flush(); err != nil {

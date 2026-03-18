@@ -86,17 +86,31 @@ export class WasmExcelService
                 const accepted = options.writable.write(buffer);
                 if (!accepted) {
                   await new Promise<void>((resolve, reject) => {
-                    const onDrain = () => {
+                    const cleanup = () => {
+                      options.writable.off('drain', onDrain);
                       options.writable.off('error', onError);
+                      options.writable.off('close', onClose);
+                    };
+                    const onDrain = () => {
+                      cleanup();
                       resolve();
                     };
                     const onError = (error: Error) => {
-                      options.writable.off('drain', onDrain);
+                      cleanup();
                       reject(error);
+                    };
+                    const onClose = () => {
+                      cleanup();
+                      reject(
+                        new Error(
+                          'WASM export aborted: writable closed before drain',
+                        ),
+                      );
                     };
 
                     options.writable.once('drain', onDrain);
                     options.writable.once('error', onError);
+                    options.writable.once('close', onClose);
                   });
                 }
               });
@@ -146,6 +160,7 @@ export class WasmExcelService
           memoryDeltaBytes: Math.max(0, memoryAfter - memoryBefore),
         };
       } finally {
+        await writeChain.catch(() => undefined);
         if (!writableEnded && !options.writable.destroyed) {
           options.writable.end();
         }
