@@ -184,24 +184,30 @@ export class WasmExcelService
   ): Promise<{ result: ExportExecutionResult; buffer: Buffer }> {
     const stream = new PassThrough();
     const chunks: Buffer[] = [];
+    const streamDone = finished(stream);
     stream.on('data', (chunk: Buffer | string) => {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     });
 
-    const result = await this.exportPlanToWritable(plan, rows, {
-      writable: stream,
-      fileName,
-    });
-    await finished(stream);
-    const buffer = Buffer.concat(chunks);
+    try {
+      const result = await this.exportPlanToWritable(plan, rows, {
+        writable: stream,
+        fileName,
+      });
+      await streamDone;
+      const buffer = Buffer.concat(chunks);
 
-    return {
-      result: {
-        ...result,
-        sizeBytes: buffer.length,
-      },
-      buffer,
-    };
+      return {
+        result: {
+          ...result,
+          sizeBytes: buffer.length,
+        },
+        buffer,
+      };
+    } catch (error) {
+      await streamDone.catch(() => undefined);
+      throw error;
+    }
   }
 
   async testExport(

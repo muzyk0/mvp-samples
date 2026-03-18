@@ -221,11 +221,12 @@ func finalizeExport(this js.Value, args []js.Value) interface{} {
 		return nil
 	}
 
-	if err := s.file.Close(); err != nil {
-		s.callback.Invoke(js.Null(), js.ValueOf("Ошибка закрытия файла: "+err.Error()))
+	closeErr := s.file.Close()
+	s.file = nil
+	if closeErr != nil {
+		s.callback.Invoke(js.Null(), js.ValueOf("Ошибка закрытия файла: "+closeErr.Error()))
 		return nil
 	}
-	s.file = nil
 
 	s.callback.Invoke(js.Null(), js.ValueOf("COMPLETE"))
 	return nil
