@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { Writable } from 'stream';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ExportDatasetStreamPlan } from '../interfaces/export-data.interface';
 import { RustWasmExcelService } from './rust-wasm-excel.service';
@@ -20,16 +21,23 @@ describe('RustWasmExcelService', () => {
     service.onModuleDestroy();
   });
 
-  it('exports a valid xlsx workbook with dataset metadata', async () => {
-    const plan: ExportDatasetStreamPlan = {
-      columns: ['ID', 'Name', 'JoinedAt'],
-      total: 2,
+  function createPlan(
+    columns: string[],
+    total: number,
+  ): ExportDatasetStreamPlan {
+    return {
+      columns,
+      total,
       seed: 42,
-      batchSize: 1,
-      effectiveLimit: 2,
-      totalMatching: 2,
+      batchSize: Math.min(total, 250),
+      effectiveLimit: total,
+      totalMatching: total,
       startOffset: 0,
     };
+  }
+
+  it('exports a valid xlsx workbook with dataset metadata', async () => {
+    const plan = createPlan(['ID', 'Name', 'JoinedAt'], 2);
 
     const rows = (async function* () {
       await Promise.resolve();
@@ -84,15 +92,7 @@ describe('RustWasmExcelService', () => {
   it('fails explicitly when runtime artifacts are missing', async () => {
     const missingAssetService = new MissingAssetRustWasmExcelService();
 
-    const plan: ExportDatasetStreamPlan = {
-      columns: ['ID'],
-      total: 1,
-      seed: 7,
-      batchSize: 1,
-      effectiveLimit: 1,
-      totalMatching: 1,
-      startOffset: 0,
-    };
+    const plan = createPlan(['ID'], 1);
 
     await expect(
       missingAssetService.exportPlanToBuffer(
@@ -104,5 +104,121 @@ describe('RustWasmExcelService', () => {
         'missing.xlsx',
       ),
     ).rejects.toThrow(/Rust WASM assets are not available yet/);
+  });
+
+  it('exports larger datasets without breaking workbook correctness', async () => {
+    const totalRows = 1500;
+    const plan = createPlan(['ID', 'Name', 'Active'], totalRows);
+
+    const rows = (async function* () {
+      await Promise.resolve();
+
+      for (let offset = 0; offset < totalRows; offset += 250) {
+        yield Array.from(
+          { length: Math.min(250, totalRows - offset) },
+          (_, index) => {
+            const id = offset + index + 1;
+            return {
+              ID: id,
+              Name: `Employee ${id}`,
+              Active: id % 2 === 0,
+            };
+          },
+        );
+      }
+    })();
+
+    const { result, buffer } = await service.exportPlanToBuffer(
+      plan,
+      rows,
+      'rust-wasm-large.xlsx',
+      'Employees',
+    );
+
+    expect(result.rowCount).toBe(totalRows);
+    expect(result.columnCount).toBe(3);
+    expect(result.sizeBytes).toBeGreaterThan(20_000);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(Buffer.from(buffer));
+    const worksheet = workbook.getWorksheet('Employees');
+
+    expect(worksheet).toBeDefined();
+    expect(worksheet?.rowCount).toBe(totalRows + 1);
+    expect(worksheet?.getCell('A1501').value).toBe(totalRows);
+    expect(worksheet?.getCell('B1501').value).toBe(`Employee ${totalRows}`);
+    expect(worksheet?.getCell('C1501').value).toBe(true);
+  });
+
+  it('handles writable backpressure while streaming final workbook bytes', async () => {
+    const plan = createPlan(['ID', 'Name'], 512);
+
+    const rows = (async function* () {
+      await Promise.resolve();
+      yield Array.from({ length: 512 }, (_, index) => ({
+        ID: index + 1,
+        Name: `Employee ${index + 1}`,
+      }));
+    })();
+
+    const chunks: Buffer[] = [];
+    const writable = new Writable({
+      highWaterMark: 16,
+      write(chunk, _encoding, callback) {
+        setTimeout(() => {
+          chunks.push(
+            Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array),
+          );
+          callback();
+        }, 1);
+      },
+    });
+
+    const result = await service.exportPlanToWritable(plan, rows, {
+      writable,
+      fileName: 'rust-wasm-backpressure.xlsx',
+      sheetName: 'Employees',
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(Buffer.concat(chunks));
+
+    expect(result.sizeBytes).toBe(Buffer.concat(chunks).length);
+    expect(result.rowCount).toBe(512);
+    expect(workbook.getWorksheet('Employees')?.getCell('B513').value).toBe(
+      'Employee 512',
+    );
+  });
+
+  it('destroys the writable when export output cannot be written', async () => {
+    const plan = createPlan(['ID'], 1);
+    let destroyed = false;
+
+    const writable = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback(new Error('write failed'));
+      },
+      destroy(error, callback) {
+        destroyed = true;
+        callback(error);
+      },
+    });
+
+    await expect(
+      service.exportPlanToWritable(
+        plan,
+        (async function* () {
+          await Promise.resolve();
+          yield [{ ID: 1 }];
+        })(),
+        {
+          writable,
+          fileName: 'rust-wasm-error.xlsx',
+        },
+      ),
+    ).rejects.toThrow(/write failed/);
+
+    expect(destroyed).toBe(true);
+    expect(writable.destroyed).toBe(true);
   });
 });

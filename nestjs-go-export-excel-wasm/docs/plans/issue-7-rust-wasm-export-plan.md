@@ -170,25 +170,25 @@ accumulation
   - Modify: `nestjs-go-export-excel-wasm/rust-excel-streamer/src/lib.rs`
   - Modify: `nestjs-go-export-excel-wasm/src/export/services/rust-wasm-excel.service.spec.ts`
   - Modify: `nestjs-go-export-excel-wasm/docs/benchmarking.md`
-  - [ ] profile the initial Rust WASM path for large limits and identify where memory
+  - [x] profile the initial Rust WASM path for large limits and identify where memory
 concentrates:
   - JS batch serialization
   - WASM-side row accumulation
   - final workbook byte materialization
   - JS buffer copies during transfer to the writable
-  - [ ] minimize avoidable copies in the accepted architecture, for example by reusing callback
+  - [x] minimize avoidable copies in the accepted architecture, for example by reusing callback
 buffers or avoiding an extra concatenation layer in Node
-  - [ ] if `rust_xlsxwriter` is used, confirm whether it exposes any writer-based finalization
+  - [x] if `rust_xlsxwriter` is used, confirm whether it exposes any writer-based finalization
 path that avoids creating two complete final copies in Rust+JS at the same time
-  - [ ] if the initial implementation returns one final `Uint8Array`, evaluate whether chunked
+  - [x] if the initial implementation returns one final `Uint8Array`, evaluate whether chunked
 transfer from Rust to JS is worth adding solely to reduce JS peak memory during response writing
-  - [ ] do not claim “streaming XLSX” for the Rust path unless bytes are demonstrably emitted
+  - [x] do not claim “streaming XLSX” for the Rust path unless bytes are demonstrably emitted
 incrementally before workbook finalization
-  - [ ] write tests for this task:
+  - [x] write tests for this task:
   - larger-volume integration test that guards against regressions in output correctness
   - targeted test for writable backpressure handling in the Rust service
   - targeted test for cleanup after export failure
-  - [ ] run unit and e2e suites before task 5
+  - [x] run unit and e2e suites before task 5
 ### Task 5: Document build, runtime, limitations, and risk tradeoffs
 **Files:**
   - Modify: `nestjs-go-export-excel-wasm/README.md`
