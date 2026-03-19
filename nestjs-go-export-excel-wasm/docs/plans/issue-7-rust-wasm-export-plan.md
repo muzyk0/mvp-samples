@@ -141,29 +141,29 @@ semantics
   - Modify: `nestjs-go-export-excel-wasm/src/export/dto/export-request.dto.ts`
   - Modify: `nestjs-go-export-excel-wasm/test/app.e2e-spec.ts`
   - Modify: `nestjs-go-export-excel-wasm/test/export-comparison.js`
-  - [ ] extend benchmark execution to run all three variants explicitly: `exceljs`, `wasm` (Go),
+  - [x] extend benchmark execution to run all three variants explicitly: `exceljs`, `wasm` (Go),
 and `rust-wasm`
-  - [ ] update result types so the benchmark payload reports all three summaries plus clearly
+  - [x] update result types so the benchmark payload reports all three summaries plus clearly
 named deltas, instead of a single generic `wasm` field
-  - [ ] keep all variants on the same precomputed stream plan and same repository-backed row
+  - [x] keep all variants on the same precomputed stream plan and same repository-backed row
 stream
-  - [ ] measure and report memory carefully:
+  - [x] measure and report memory carefully:
   - continue reporting Node heap delta as today for comparability
   - add a separate documented note that this does not include precise Rust/Go WASM linear memory
 unless separately instrumented
   - if feasible, capture coarse WASM memory pages/byte length from the instantiated module before
 and after export for diagnostic reporting, but do not block implementation on this if runtime
 access is awkward
-  - [ ] make the benchmark output and docs explicit about the difference between:
+  - [x] make the benchmark output and docs explicit about the difference between:
   - ExcelJS true streaming to a Writable
   - Go WASM final ZIP write callbacks after internal workbook accumulation
   - Rust WASM either final-buffer handoff or callback chunk handoff after internal workbook
 accumulation
-  - [ ] write tests for this task:
+  - [x] write tests for this task:
   - benchmark e2e test asserting all three variants are present
   - benchmark test asserting row counts remain aligned across variants
   - benchmark test asserting memory fields are omitted consistently when `includeMemory=false`
-  - [ ] run unit tests, e2e tests, and the scripted benchmark check before task 4
+  - [x] run unit tests, e2e tests, and the scripted benchmark check before task 4
 ### Task 4: Reduce fairness gaps and memory surprises in the Rust path
 **Files:**
   - Modify: `nestjs-go-export-excel-wasm/src/export/services/rust-wasm-excel.service.ts`

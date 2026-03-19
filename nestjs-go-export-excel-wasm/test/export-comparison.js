@@ -46,6 +46,17 @@ async function main() {
       );
     }
 
+    if (!payload?.exceljs || !payload?.goWasm || !payload?.rustWasm) {
+      throw new Error('Benchmark payload is missing one or more variant summaries');
+    }
+
+    if (
+      payload.exceljs.rowCount !== payload.goWasm.rowCount ||
+      payload.exceljs.rowCount !== payload.rustWasm.rowCount
+    ) {
+      throw new Error('Benchmark payload returned mismatched row counts across variants');
+    }
+
     console.log(JSON.stringify(payload, null, 2));
   } catch (error) {
     if (error?.name === 'AbortError') {
