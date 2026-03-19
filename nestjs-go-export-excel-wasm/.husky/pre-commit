@@ -1,0 +1,1 @@
+cd nestjs-go-export-excel-wasm && bunx lint-staged
