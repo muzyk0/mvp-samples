@@ -41,8 +41,10 @@ export interface WasmProgress {
   percentage: number;
 }
 
+export type ExportVariant = 'exceljs' | 'wasm' | 'rust-wasm';
+
 export interface ExportExecutionResult {
-  variant: 'exceljs' | 'wasm';
+  variant: ExportVariant;
   fileName: string;
   contentType: string;
   durationMs: number;

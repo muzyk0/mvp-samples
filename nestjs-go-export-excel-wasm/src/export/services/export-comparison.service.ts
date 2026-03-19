@@ -16,6 +16,7 @@ import {
 } from '../interfaces/export-data.interface';
 import { DataGeneratorService } from './data-generator.service';
 import { ExceljsExportService } from './exceljs-export.service';
+import { RustWasmExcelService } from './rust-wasm-excel.service';
 import { StreamResponseService } from './stream-response.service';
 import { WasmExcelService } from './wasm-excel.service';
 
@@ -25,6 +26,7 @@ export class ExportComparisonService {
     private readonly dataGeneratorService: DataGeneratorService,
     private readonly exceljsExportService: ExceljsExportService,
     private readonly wasmExcelService: WasmExcelService,
+    private readonly rustWasmExcelService: RustWasmExcelService,
     private readonly streamResponseService: StreamResponseService,
   ) {}
 
@@ -73,6 +75,29 @@ export class ExportComparisonService {
     );
   }
 
+  async streamRustWasmToResponse(
+    options: ExportRequestDto,
+    response: Response,
+  ): Promise<void> {
+    const fileName = options.fileName ?? 'rust-wasm-export.xlsx';
+    const plan = await this.dataGeneratorService.createStreamPlan(options);
+    this.streamResponseService.prepareDownload(
+      response,
+      fileName,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
+    await this.rustWasmExcelService.exportPlanToWritable(
+      plan,
+      this.dataGeneratorService.streamExportData(plan),
+      {
+        writable: response,
+        fileName,
+        sheetName: options.sheetName,
+      },
+    );
+  }
+
   async exportWithExcelJs(
     options: ExportRequestDto,
   ): Promise<ExportExecutionResult & { buffer: Buffer }> {
@@ -97,6 +122,21 @@ export class ExportComparisonService {
       this.dataGeneratorService.streamExportData(plan),
       options.fileName ?? 'wasm-export.xlsx',
     );
+
+    return { ...result, buffer };
+  }
+
+  async exportWithRustWasm(
+    options: ExportRequestDto,
+  ): Promise<ExportExecutionResult & { buffer: Buffer }> {
+    const plan = await this.dataGeneratorService.createStreamPlan(options);
+    const { result, buffer } =
+      await this.rustWasmExcelService.exportPlanToBuffer(
+        plan,
+        this.dataGeneratorService.streamExportData(plan),
+        options.fileName ?? 'rust-wasm-export.xlsx',
+        options.sheetName,
+      );
 
     return { ...result, buffer };
   }
