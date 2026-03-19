@@ -24,7 +24,9 @@
     "prisma:migrate": "prisma migrate dev --name init-sqlite",
     "prisma:seed": "ts-node --project tsconfig.json prisma/seed.ts",
     "db:reset": "prisma migrate reset --force --skip-generate",
-    "build:wasm": "cd excel-streamer && cp \"$(go env GOROOT)/lib/wasm/wasm_exec.js\" . && GOOS=js GOARCH=wasm go build -o excel_bridge.wasm excel_bridge.go"
+    "build:wasm": "cd excel-streamer && cp \"$(go env GOROOT)/lib/wasm/wasm_exec.js\" . && GOOS=js GOARCH=wasm go build -o excel_bridge.wasm excel_bridge.go",
+    "build:rust-wasm": "bash -lc 'export PATH=\"$HOME/.cargo/bin:$PATH\"; command -v cargo >/dev/null || { echo \"cargo is required\" >&2; exit 1; }; command -v wasm-bindgen >/dev/null || cargo install wasm-bindgen-cli --locked; rustup target add wasm32-unknown-unknown >/dev/null 2>&1 || true; cd rust-excel-streamer && cargo build --release --target wasm32-unknown-unknown && mkdir -p pkg && wasm-bindgen --target nodejs --out-dir pkg target/wasm32-unknown-unknown/release/rust_excel_streamer.wasm'",
+    "test:rust-wasm": "node rust-excel-streamer/test_wasm.js"
   },
   "prisma": {
     "seed": "bun run prisma:seed"
