@@ -250,10 +250,20 @@ bun run test
 bun run test:e2e
 ```
 
-Live benchmark verification:
+Live benchmark verification (`bun run start:prod` blocks, so use a second terminal or background the server):
 
 ```bash
+# Terminal 1
 PORT=3000 bun run start:prod
+
+# Terminal 2
+BASE_URL=http://localhost:3000 bun run test:comparison
+```
+
+Or in one shell with the server in the background:
+
+```bash
+PORT=3000 bun run start:prod &
 BASE_URL=http://localhost:3000 bun run test:comparison
 ```
 

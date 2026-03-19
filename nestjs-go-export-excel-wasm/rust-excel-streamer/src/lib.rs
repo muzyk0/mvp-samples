@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use rust_xlsxwriter::{Workbook, Worksheet, XlsxError};
+use rust_xlsxwriter::{Format, Workbook, Worksheet, XlsxError};
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use wasm_bindgen::prelude::*;
@@ -94,7 +94,7 @@ fn write_cell(
 ) -> Result<(), XlsxError> {
     match value {
         JsonValue::Null => {
-            worksheet.write_string(row_index, column_index, "")?;
+            worksheet.write_blank(row_index, column_index, &Format::default())?;
         }
         JsonValue::Bool(boolean) => {
             worksheet.write_boolean(row_index, column_index, *boolean)?;

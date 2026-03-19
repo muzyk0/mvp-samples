@@ -284,7 +284,10 @@ export class RustWasmExcelService
     chunkSize = 64 * 1024,
   ): Generator<Uint8Array> {
     for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
-      yield bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+      yield bytes.subarray(
+        offset,
+        Math.min(offset + chunkSize, bytes.byteLength),
+      );
     }
   }
 

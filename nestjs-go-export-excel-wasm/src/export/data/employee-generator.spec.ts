@@ -31,7 +31,7 @@ describe('employee-generator', () => {
     expect(record.baseSalary).toBeGreaterThanOrEqual(70_000);
     expect(record.baseSalary).toBeLessThanOrEqual(280_000);
     expect(record.totalSalary).toBe(record.baseSalary + record.bonusSalary);
-    expect(record.birthDate.toISOString()).toMatch(/^19\d{2}|2000/);
+    expect(record.birthDate.toISOString()).toMatch(/^(19\d{2}|2000)-/);
     expect(record.hireDate.getFullYear()).toBeGreaterThanOrEqual(2015);
     expect(record.hireDate.getFullYear()).toBeLessThanOrEqual(2024);
     expect(record.age).toBeGreaterThanOrEqual(25);

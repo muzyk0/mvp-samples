@@ -58,10 +58,17 @@ async function main() {
       throw new Error('Benchmark payload is missing diagnostics metadata');
     }
 
-    if (
-      payload.exceljs.rowCount !== payload.goWasm.rowCount ||
-      payload.exceljs.rowCount !== payload.rustWasm.rowCount
-    ) {
+    const rowCounts = [
+      payload.exceljs?.rowCount,
+      payload.goWasm?.rowCount,
+      payload.rustWasm?.rowCount,
+    ];
+
+    if (!rowCounts.every((value) => typeof value === 'number')) {
+      throw new Error('Benchmark payload is missing valid rowCount in one or more variants');
+    }
+
+    if (new Set(rowCounts).size !== 1) {
       throw new Error('Benchmark payload returned mismatched row counts across variants');
     }
 

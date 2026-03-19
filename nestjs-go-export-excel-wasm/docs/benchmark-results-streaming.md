@@ -136,7 +136,18 @@ Recommended command flow:
 bun run build:wasm
 bun run build:rust-wasm
 bun run build
+
+# Terminal 1
 PORT=3100 bun run start:prod
+
+# Terminal 2
+BASE_URL=http://localhost:3100 LIMIT=10000 SEED=12345 bun run test:comparison
+```
+
+Or start the production server in the background:
+
+```bash
+PORT=3100 bun run start:prod &
 BASE_URL=http://localhost:3100 LIMIT=10000 SEED=12345 bun run test:comparison
 ```
 

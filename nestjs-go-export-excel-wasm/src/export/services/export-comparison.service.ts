@@ -14,6 +14,7 @@ import {
   ExportBenchmarkResult,
   ExportExecutionResult,
   ExportExecutionSummary,
+  ExportVariant,
 } from '../interfaces/export-data.interface';
 import { DataGeneratorService } from './data-generator.service';
 import { ExceljsExportService } from './exceljs-export.service';
@@ -164,7 +165,7 @@ export class ExportComparisonService {
 
     return {
       request: {
-        limit: plan.effectiveLimit,
+        limit: options.limit ?? 1000,
         seed: plan.seed,
         columns: plan.columns,
       },
@@ -205,7 +206,7 @@ export class ExportComparisonService {
   }
 
   private async exportVariantToTempFile(
-    variant: 'exceljs' | 'wasm' | 'rust-wasm',
+    variant: ExportVariant,
     plan: Awaited<ReturnType<DataGeneratorService['createStreamPlan']>>,
     options: ExportRequestDto,
   ): Promise<ExportExecutionResult> {

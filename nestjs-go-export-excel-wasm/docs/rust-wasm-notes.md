@@ -15,7 +15,7 @@ The generated Node package lives under `rust-excel-streamer/pkg/` and is built l
 bun run build:rust-wasm
 ```
 
-The current JS to WASM contract is deliberately close to the Go path:
+The current JS-to-WASM contract is deliberately close to the Go path:
 
 - Node builds the shared stream plan from SQLite/Prisma data;
 - batch payloads are serialized to JSON;
