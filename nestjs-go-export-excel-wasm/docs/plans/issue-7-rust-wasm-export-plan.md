@@ -222,14 +222,14 @@ generation
   - test:e2e
   - test:comparison
 ### Task 6: Verify acceptance criteria
-  - [ ] run full test suite using the project-specific commands
-  - [ ] run linter with the project-specific command
-  - [ ] verify coverage remains at or above 80% if the current project coverage gate or reporting
+  - [x] run full test suite using the project-specific commands
+  - [x] run linter with the project-specific command
+  - [x] verify coverage remains at or above 80% if the current project coverage gate or reporting
 supports that check
-  - [ ] verify the benchmark endpoint compares ExcelJS, Go WASM, and Rust WASM over the same
+  - [x] verify the benchmark endpoint compares ExcelJS, Go WASM, and Rust WASM over the same
 request parameters and row counts
-  - [ ] verify missing-asset behavior is explicit for both Go and Rust WASM exporters
-  - [ ] verify no separate native Rust backend or standalone Rust service has been introduced
+  - [x] verify missing-asset behavior is explicit for both Go and Rust WASM exporters
+  - [x] verify no separate native Rust backend or standalone Rust service has been introduced
 ### Task 7: Update documentation and close out
   - [ ] update README.md for user-facing changes
   - [ ] update AGENTS.md for new exporter-specific implementation guidance

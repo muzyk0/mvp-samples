@@ -63,4 +63,26 @@ describe('WasmExcelService', () => {
       hasBinary: true,
     });
   });
+
+  it('fails explicitly when runtime artifacts are missing', async () => {
+    const missingAssetsDir = '/tmp/go-wasm-missing-assets';
+    const missingAssetService = new WasmExcelService();
+    const missingAssetInternals = missingAssetService as WasmExcelService & {
+      wasmAssetsDir: string;
+      wasmModulePath: string;
+      wasmExecPath: string;
+      wasmBuffer?: Buffer;
+      wasmExecLoaded: boolean;
+      wasmLoadPromise?: Promise<void>;
+    };
+    missingAssetInternals.wasmAssetsDir = missingAssetsDir;
+    missingAssetInternals.wasmModulePath = `${missingAssetsDir}/excel_bridge.wasm`;
+    missingAssetInternals.wasmExecPath = `${missingAssetsDir}/wasm_exec.js`;
+    missingAssetInternals.wasmBuffer = undefined;
+    missingAssetInternals.wasmExecLoaded = false;
+    missingAssetInternals.wasmLoadPromise = undefined;
+    await expect(
+      missingAssetService.initializeExport(['ID'], 1),
+    ).rejects.toThrow(/WASM assets are not available yet/);
+  });
 });
