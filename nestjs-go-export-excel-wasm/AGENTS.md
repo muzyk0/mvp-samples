@@ -102,6 +102,12 @@ bun run start:dev
 bun run test:comparison
 ```
 
+If Bun is unavailable but the app is already running, use:
+
+```bash
+BASE_URL=http://localhost:3000 node test/export-comparison.js
+```
+
 ## Editing rules
 
 ### Prefer
@@ -126,6 +132,7 @@ If another variant is added later:
 
 ## Notes on WASM paths
 - Go/WASM remains more fragile than `exceljs` and currently relies on serialized execution because of Go runtime characteristics.
-- Rust/WASM uses generated local assets, not a separate native Rust backend or standalone service.
+- Rust/WASM uses generated local assets, not a separate native Rust backend or standalone service, and currently serializes execution in the NestJS bridge to avoid re-entrancy surprises.
 - Do not claim either WASM path is true row-streaming XLSX unless bytes are shown to leave the runtime before workbook finalization.
 - Benchmark `memoryDeltaBytes` reflects Node heap deltas only unless the payload and code explicitly add separate WASM memory instrumentation.
+- The benchmark payload is explicit now: `exceljs`, `goWasm`, `rustWasm`, `deltas`, and `diagnostics`.

@@ -231,10 +231,10 @@ request parameters and row counts
   - [x] verify missing-asset behavior is explicit for both Go and Rust WASM exporters
   - [x] verify no separate native Rust backend or standalone Rust service has been introduced
 ### Task 7: Update documentation and close out
-  - [ ] update README.md for user-facing changes
-  - [ ] update AGENTS.md for new exporter-specific implementation guidance
-  - [ ] update benchmark docs/results if command output or payload shape changed
-  - [ ] move this plan to `docs/plans/completed/`
+  - [x] update README.md for user-facing changes
+  - [x] update AGENTS.md for new exporter-specific implementation guidance
+  - [x] update benchmark docs/results if command output or payload shape changed
+  - [x] move this plan to `docs/plans/completed/`
 ## Risks
   - rust_xlsxwriter may compile for wasm but still be impractical for this sample if its useful
 low-memory modes depend on tempfile or if Node integration forces a full final buffer copy.
