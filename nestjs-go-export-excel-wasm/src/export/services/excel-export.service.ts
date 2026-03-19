@@ -7,7 +7,6 @@ import {
 import type { Response } from 'express';
 import {
   DEFAULT_EXPORT_LIMIT,
-  MAX_EXPORT_LIMIT,
   ExportRequestDto,
 } from '../dto/export-request.dto';
 import { ExportData } from '../interfaces/export-data.interface';
@@ -73,10 +72,6 @@ export class ExcelExportService {
     const errors: string[] = [];
 
     const effectiveLimit = options.limit ?? DEFAULT_EXPORT_LIMIT;
-
-    if (effectiveLimit > MAX_EXPORT_LIMIT) {
-      errors.push(`Лимит не может превышать ${MAX_EXPORT_LIMIT} записей`);
-    }
 
     if (effectiveLimit <= 0) {
       errors.push('Лимит должен быть больше 0');

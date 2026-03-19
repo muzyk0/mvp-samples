@@ -8,6 +8,7 @@ import {
 import {
   ExportDataRow,
   ExportDataset,
+  ExportDatasetStreamPlan,
 } from '../interfaces/export-data.interface';
 import { ExportDatasetRepository } from '../repositories/export-dataset.repository';
 
@@ -21,17 +22,28 @@ export class DataGeneratorService {
     return this.exportDatasetRepository.getDataset(options);
   }
 
+  async createStreamPlan(
+    options: ExportRequestDto,
+  ): Promise<ExportDatasetStreamPlan> {
+    return this.exportDatasetRepository.createStreamPlan(options);
+  }
+
+  streamExportData(
+    plan: ExportDatasetStreamPlan,
+  ): AsyncGenerator<ExportDataRow[]> {
+    return this.exportDatasetRepository.streamRows(plan);
+  }
+
   async *generateExportDataStream(
     optionsOrFilters?: ExportRequestDto | ExportFilterDto,
     limit?: number,
     batchSize?: number,
   ): AsyncGenerator<ExportDataRow[]> {
     const options = this.normalizeOptions(optionsOrFilters, limit, batchSize);
-    const dataset = await this.getDataset(options);
-    const chunkSize = this.normalizeBatchSize(options.batchSize);
+    const plan = await this.createStreamPlan(options);
 
-    for (let index = 0; index < dataset.rows.length; index += chunkSize) {
-      yield dataset.rows.slice(index, index + chunkSize);
+    for await (const batch of this.streamExportData(plan)) {
+      yield batch;
     }
   }
 
@@ -72,9 +84,7 @@ export class DataGeneratorService {
     if (this.isExportRequestDto(optionsOrFilters)) {
       return {
         limit,
-        batchSize: this.normalizeBatchSize(
-          optionsOrFilters.batchSize ?? batchSize,
-        ),
+        batchSize: optionsOrFilters.batchSize ?? batchSize,
         ...optionsOrFilters,
       };
     }
@@ -82,17 +92,7 @@ export class DataGeneratorService {
     return {
       filters: optionsOrFilters,
       limit,
-      batchSize: this.normalizeBatchSize(batchSize),
+      batchSize,
     };
-  }
-
-  private normalizeBatchSize(batchSize: number | undefined): number {
-    const effectiveBatchSize = batchSize ?? DEFAULT_EXPORT_BATCH_SIZE;
-
-    if (effectiveBatchSize <= 0) {
-      throw new Error('batchSize must be greater than 0');
-    }
-
-    return effectiveBatchSize;
   }
 }

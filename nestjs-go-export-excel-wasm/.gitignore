@@ -52,5 +52,9 @@ pids
 *.seed
 *.pid.lock
 
+# Generated WASM artifacts
+/excel-streamer/excel_bridge.wasm
+/excel-streamer/wasm_exec.js
+
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json

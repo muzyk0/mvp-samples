@@ -82,7 +82,7 @@ async function testStreamingWasm() {
         // Переменные для отслеживания состояния
         let isComplete = false;
         let errorOccurred = false;
-        let fileData = null;
+        let waitingDrain = false;
 
         // Callback для получения данных от Go
         const receiveChunk = (chunkData, status) => {
@@ -98,34 +98,20 @@ async function testStreamingWasm() {
                 return;
             }
 
-            if (status && status.startsWith('CHUNK:')) {
-                // Парсим информацию о чанке
-                const parts = status.split(':');
-                const current = parseInt(parts[1]);
-                const total = parseInt(parts[2]);
-                const fileSize = parseInt(parts[3]);
-
-                if (!fileData) {
-                    fileData = new Uint8Array(fileSize);
-                    console.log(`📁 Размер файла: ${(fileSize / 1024 / 1024).toFixed(2)}MB, чанков: ${total}`);
-                }
-
-                // Копируем данные в общий буфер
-                const offset = (current - 1) * 64 * 1024;
-                fileData.set(new Uint8Array(chunkData), offset);
+            if (status && status.startsWith('BYTES:')) {
+                const totalBytes = parseInt(status.split(':')[1], 10);
 
                 // Записываем в файл
                 const buffer = Buffer.from(chunkData);
-                if (!excelWriter.write(buffer)) {
+                if (!excelWriter.write(buffer) && !waitingDrain) {
+                    waitingDrain = true;
                     excelWriter.once('drain', () => {
-                        // Буфер очищен
+                        waitingDrain = false;
                     });
                 }
 
-                // Выводим прогресс каждые 10% или для последнего чанка
-                if (current % Math.max(1, Math.floor(total / 10)) === 0 || current === total) {
-                    const percent = Math.round((current / total) * 100);
-                    console.log(`   📊 Прогресс: ${current}/${total} (${percent}%)`);
+                if (excelWriter.chunkCount === 1 || excelWriter.chunkCount % 10 === 0) {
+                    console.log(`   📊 Передано байт: ${(totalBytes / 1024 / 1024).toFixed(2)}MB`);
                 }
                 return;
             }
@@ -443,12 +429,6 @@ async function testStreamingWasm() {
             // Выводим прогресс
             if ((i + currentBatch) % 1000 === 0 || (i + currentBatch) === totalRecords) {
                 console.log(`   📝 Записано ${i + currentBatch} из ${totalRecords} записей`);
-
-                // Проверяем прогресс
-                if (typeof goGetProgress !== 'undefined') {
-                    const progress = goGetProgress();
-                    console.log(`   📊 Текущий прогресс в Go: ${progress} строк`);
-                }
             }
 
             // Небольшая пауза между батчами

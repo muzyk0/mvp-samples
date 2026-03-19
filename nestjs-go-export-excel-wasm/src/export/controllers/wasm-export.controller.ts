@@ -10,7 +10,6 @@ import {
 import type { Response } from 'express';
 import { ExportRequestDto } from '../dto/export-request.dto';
 import { ExportComparisonService } from '../services/export-comparison.service';
-import { StreamResponseService } from '../services/stream-response.service';
 import { WasmExcelService } from '../services/wasm-excel.service';
 import { parseQuickExportQuery } from './export-query-validation';
 
@@ -18,7 +17,6 @@ import { parseQuickExportQuery } from './export-query-validation';
 export class WasmExportController {
   constructor(
     private readonly exportComparisonService: ExportComparisonService,
-    private readonly streamResponseService: StreamResponseService,
     private readonly wasmExcelService: WasmExcelService,
   ) {}
 
@@ -27,16 +25,12 @@ export class WasmExportController {
     @Body() request: ExportRequestDto,
     @Res() response: Response,
   ): Promise<void> {
-    const result = await this.exportComparisonService.exportWithWasm({
-      ...request,
-      fileName: request.fileName ?? 'wasm-export.xlsx',
-    });
-
-    this.streamResponseService.sendBuffer(
+    await this.exportComparisonService.streamWasmToResponse(
+      {
+        ...request,
+        fileName: request.fileName ?? 'wasm-export.xlsx',
+      },
       response,
-      result.buffer,
-      result.fileName,
-      result.contentType,
     );
   }
 

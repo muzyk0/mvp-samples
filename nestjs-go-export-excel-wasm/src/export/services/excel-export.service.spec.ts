@@ -1,7 +1,12 @@
-import { HttpException, InternalServerErrorException } from '@nestjs/common';
+import { HttpException, Logger } from '@nestjs/common';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExcelExportService } from './excel-export.service';
 
 describe('ExcelExportService', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   const createService = (
     exportWithWasm: (options: unknown) => Promise<{
       buffer: Buffer;
@@ -15,7 +20,7 @@ describe('ExcelExportService', () => {
       } as never,
       {} as never,
       {
-        sendBuffer: jest.fn(),
+        sendBuffer: vi.fn(),
       } as never,
     );
 
@@ -29,15 +34,25 @@ describe('ExcelExportService', () => {
   });
 
   it('wraps unexpected exporter errors as internal server errors', async () => {
+    const loggerError = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
     const service = createService(() => Promise.reject(new Error('boom')));
 
     await expect(
       service.exportToResponse({} as never, { limit: 1 } as never),
-    ).rejects.toEqual(
-      expect.objectContaining<Partial<InternalServerErrorException>>({
-        status: 500,
-        message: 'Ошибка при экспорте: boom',
-      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(500);
+      expect((error as HttpException).message).toBe(
+        'Ошибка при экспорте: boom',
+      );
+      return true;
+    });
+
+    expect(loggerError).toHaveBeenCalledWith(
+      'WASM export failed: boom',
+      expect.any(String),
     );
   });
 });

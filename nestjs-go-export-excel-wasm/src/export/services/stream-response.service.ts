@@ -1,27 +1,47 @@
 import { Injectable } from '@nestjs/common';
+import { pipeline } from 'stream/promises';
+import type { Readable } from 'stream';
 import type { Response } from 'express';
 
 @Injectable()
 export class StreamResponseService {
+  prepareDownload(
+    response: Response,
+    fileName: string,
+    contentType: string = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ): void {
+    response.setHeader('Content-Type', contentType);
+    const safeFileName = this.sanitizeFileName(fileName);
+    const encodedFileName = encodeURIComponent(safeFileName);
+
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`,
+    );
+    response.setHeader(
+      'Access-Control-Expose-Headers',
+      'Content-Disposition, Content-Length',
+    );
+  }
+
+  async pipeReadable(
+    response: Response,
+    readable: Readable,
+    fileName: string,
+    contentType?: string,
+  ): Promise<void> {
+    this.prepareDownload(response, fileName, contentType);
+    await pipeline(readable, response);
+  }
+
   sendBuffer(
     response: Response,
     buffer: Buffer,
     fileName: string,
     contentType: string = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   ): void {
-    response.setHeader('Content-Type', contentType);
-    const safeFileName = this.sanitizeFileName(fileName);
-    const encodedFileName = encodeURIComponent(fileName || safeFileName);
-
-    response.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`,
-    );
+    this.prepareDownload(response, fileName, contentType);
     response.setHeader('Content-Length', buffer.length);
-    response.setHeader(
-      'Access-Control-Expose-Headers',
-      'Content-Disposition, Content-Length',
-    );
     response.end(buffer);
   }
 

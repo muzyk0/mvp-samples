@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Employee, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  DEFAULT_EXPORT_BATCH_SIZE,
   DEFAULT_EXPORT_LIMIT,
   DEFAULT_EXPORT_SEED,
   ExportFilterDto,
@@ -10,6 +11,7 @@ import {
 import {
   ExportDataRow,
   ExportDataset,
+  ExportDatasetStreamPlan,
 } from '../interfaces/export-data.interface';
 
 @Injectable()
@@ -40,91 +42,119 @@ export class ExportDatasetRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDataset(options: ExportRequestDto): Promise<ExportDataset> {
+    const plan = await this.createStreamPlan(options);
+    const rows: ExportDataRow[] = [];
+
+    for await (const batch of this.streamRows(plan)) {
+      rows.push(...batch);
+    }
+
+    return {
+      columns: plan.columns,
+      rows,
+      total: rows.length,
+      seed: plan.seed,
+    };
+  }
+
+  async createStreamPlan(
+    options: ExportRequestDto,
+  ): Promise<ExportDatasetStreamPlan> {
     const columns = this.sanitizeColumns(options.columns);
-    const limit = options.limit ?? DEFAULT_EXPORT_LIMIT;
+    const effectiveLimit = options.limit ?? DEFAULT_EXPORT_LIMIT;
+    const batchSize = options.batchSize ?? DEFAULT_EXPORT_BATCH_SIZE;
     const where = this.buildWhere(options.filters);
     const seed = options.seed ?? DEFAULT_EXPORT_SEED;
-
-    const { totalMatching, rows } = await this.prisma.$transaction(
-      async (tx) => {
-        const totalMatching = await tx.employee.count({ where });
-
-        if (totalMatching === 0) {
-          return { totalMatching, rows: [] as Employee[] };
-        }
-
-        const explicitOffset = options.offset ?? 0;
-        const startOffset =
-          (explicitOffset + (seed % totalMatching)) % totalMatching;
-        const rows = await this.getWindowedRows(
-          tx,
-          limit,
-          startOffset,
-          totalMatching,
-          where,
-        );
-
-        return { totalMatching, rows };
-      },
-    );
+    const totalMatching = await this.prisma.employee.count({ where });
 
     if (totalMatching === 0) {
       return {
         columns,
-        rows: [],
         total: 0,
         seed,
+        batchSize,
+        effectiveLimit,
+        totalMatching,
+        startOffset: 0,
+        where,
       };
     }
 
+    const explicitOffset = options.offset ?? 0;
+    const startOffset =
+      (explicitOffset + (seed % totalMatching)) % totalMatching;
+
     return {
       columns,
-      rows: rows.map((row) => this.pickColumns(this.mapEmployee(row), columns)),
-      total: rows.length,
+      total: Math.min(effectiveLimit, totalMatching),
       seed,
+      batchSize,
+      effectiveLimit,
+      totalMatching,
+      startOffset,
+      where,
     };
+  }
+
+  async *streamRows(
+    plan: ExportDatasetStreamPlan,
+  ): AsyncGenerator<ExportDataRow[]> {
+    if (plan.total === 0) {
+      return;
+    }
+
+    let remaining = plan.total;
+    let lastTailId: number | undefined;
+    let wrapBoundaryId: number | undefined;
+    let tailComplete = false;
+    let lastWrappedId: number | undefined;
+
+    while (remaining > 0) {
+      const take = Math.min(plan.batchSize, remaining);
+      const fetchingWrappedRows = tailComplete;
+      const where = fetchingWrappedRows
+        ? this.buildWrappedWhere(plan.where, wrapBoundaryId, lastWrappedId)
+        : this.buildTailWhere(plan.where, lastTailId);
+      const skip = fetchingWrappedRows || lastTailId ? 0 : plan.startOffset;
+      const rows = await this.prisma.employee.findMany({
+        where,
+        orderBy: { id: 'asc' },
+        skip,
+        take,
+      });
+
+      if (rows.length === 0) {
+        if (fetchingWrappedRows) {
+          break;
+        }
+
+        tailComplete = true;
+        continue;
+      }
+
+      if (!fetchingWrappedRows && wrapBoundaryId === undefined) {
+        wrapBoundaryId = rows[0]?.id;
+      }
+
+      remaining -= rows.length;
+
+      if (fetchingWrappedRows) {
+        lastWrappedId = rows.at(-1)?.id;
+      } else {
+        lastTailId = rows.at(-1)?.id;
+        if (rows.length < take) {
+          tailComplete = true;
+        }
+      }
+
+      yield rows.map((row) =>
+        this.pickColumns(this.mapEmployee(row), plan.columns),
+      );
+    }
   }
 
   getColumnNames(): string[] {
     return [...this.defaultColumns];
-  }
-
-  private async getWindowedRows(
-    tx: Prisma.TransactionClient,
-    limit: number,
-    offset: number,
-    totalMatching: number,
-    where: Prisma.EmployeeWhereInput,
-  ): Promise<Employee[]> {
-    const firstTake = Math.min(limit, Math.max(totalMatching - offset, 0));
-
-    const firstChunk = await tx.employee.findMany({
-      where,
-      orderBy: { id: 'asc' },
-      skip: offset,
-      take: firstTake,
-    });
-
-    if (firstChunk.length >= limit || firstChunk.length === totalMatching) {
-      return firstChunk;
-    }
-
-    const seenIds = new Set(firstChunk.map((row) => row.id));
-    const remainder = Math.min(
-      limit - firstChunk.length,
-      totalMatching - seenIds.size,
-    );
-
-    const secondChunk = await tx.employee.findMany({
-      where,
-      orderBy: { id: 'asc' },
-      take: remainder,
-    });
-
-    const dedupedSecondChunk = secondChunk.filter(
-      (row) => !seenIds.has(row.id),
-    );
-    return [...firstChunk, ...dedupedSecondChunk];
   }
 
   private buildWhere(filters?: ExportFilterDto): Prisma.EmployeeWhereInput {
@@ -138,6 +168,37 @@ export class ExportDatasetRepository {
       hireDate: this.buildDateRange(filters.startDate, filters.endDate),
       totalSalary: this.buildNumberRange(filters.minSalary, filters.maxSalary),
     };
+  }
+
+  private buildTailWhere(
+    baseWhere: Prisma.EmployeeWhereInput | undefined,
+    lastTailId?: number,
+  ): Prisma.EmployeeWhereInput {
+    if (lastTailId === undefined) {
+      return baseWhere ?? {};
+    }
+
+    return {
+      AND: [baseWhere ?? {}, { id: { gt: lastTailId } }],
+    };
+  }
+
+  private buildWrappedWhere(
+    baseWhere: Prisma.EmployeeWhereInput | undefined,
+    wrapBoundaryId?: number,
+    lastWrappedId?: number,
+  ): Prisma.EmployeeWhereInput {
+    const and: Prisma.EmployeeWhereInput[] = [baseWhere ?? {}];
+
+    if (wrapBoundaryId !== undefined) {
+      and.push({ id: { lt: wrapBoundaryId } });
+    }
+
+    if (lastWrappedId !== undefined) {
+      and.push({ id: { gt: lastWrappedId } });
+    }
+
+    return and.length === 1 ? and[0] : { AND: and };
   }
 
   private buildDateRange(

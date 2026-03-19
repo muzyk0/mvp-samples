@@ -10,14 +10,12 @@ import {
 import type { Response } from 'express';
 import { ExportRequestDto } from '../dto/export-request.dto';
 import { ExportComparisonService } from '../services/export-comparison.service';
-import { StreamResponseService } from '../services/stream-response.service';
 import { parseQuickExportQuery } from './export-query-validation';
 
 @Controller('export/exceljs')
 export class ExceljsExportController {
   constructor(
     private readonly exportComparisonService: ExportComparisonService,
-    private readonly streamResponseService: StreamResponseService,
   ) {}
 
   @Post('download')
@@ -25,16 +23,12 @@ export class ExceljsExportController {
     @Body() request: ExportRequestDto,
     @Res() response: Response,
   ): Promise<void> {
-    const result = await this.exportComparisonService.exportWithExcelJs({
-      ...request,
-      fileName: request.fileName ?? 'exceljs-export.xlsx',
-    });
-
-    this.streamResponseService.sendBuffer(
+    await this.exportComparisonService.streamExcelJsToResponse(
+      {
+        ...request,
+        fileName: request.fileName ?? 'exceljs-export.xlsx',
+      },
       response,
-      result.buffer,
-      result.fileName,
-      result.contentType,
     );
   }
 

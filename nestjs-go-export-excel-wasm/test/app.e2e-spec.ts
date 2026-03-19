@@ -1,15 +1,17 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
 
 const BENCHMARK_TEST_TIMEOUT = 20_000;
 
-const binaryParser = (
+type SupertestBinaryParser = Parameters<ReturnType<typeof request>['parse']>[0];
+
+const binaryParser: SupertestBinaryParser = (
   res: NodeJS.ReadableStream,
   callback: (error: Error | null, body: Buffer) => void,
-) => {
+): void => {
   const chunks: Buffer[] = [];
 
   res.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -21,6 +23,8 @@ describe('Export comparison app (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
+    // Dynamic import keeps AppModule loading compatible with the ESM Vitest/Bun setup.
+    const { AppModule } = await import('../src/app.module.js');
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -115,11 +119,23 @@ describe('Export comparison app (e2e)', () => {
       .expect(400);
   });
 
-  it('/export/wasm/quick rejects excessive limit', async () => {
-    await request(app.getHttpServer())
-      .get('/export/wasm/quick?limit=100001&seed=12345')
-      .expect(400);
-  });
+  it(
+    '/export/wasm/quick accepts moderate higher limit values',
+    async () => {
+      const response = await request(app.getHttpServer())
+        .get('/export/wasm/quick?limit=5000&seed=12345')
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      const body = response.body as Buffer;
+      expect(body.subarray(0, 2).toString()).toBe('PK');
+    },
+    BENCHMARK_TEST_TIMEOUT,
+  );
 
   it('/export/exceljs/download sanitizes file name in content disposition', async () => {
     const response = await request(app.getHttpServer())
@@ -170,6 +186,24 @@ describe('Export comparison app (e2e)', () => {
     expect(response.body.wasm.memoryDeltaBytes).toBeUndefined();
     expect(response.body.delta.memoryDeltaBytes).toBeUndefined();
   });
+
+  it(
+    '/export/benchmark preserves explicit request.limit while rowCount reflects actual rows',
+    async () => {
+      const response = await request(app.getHttpServer())
+        .post('/export/benchmark')
+        .send({ limit: 5000, seed: 12345, includeMemory: false })
+        .expect(201);
+
+      expect(response.body.request.limit).toBe(5000);
+      expect(response.body.exceljs.rowCount).toBeGreaterThan(0);
+      expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(5000);
+      expect(response.body.wasm.rowCount).toBeGreaterThan(0);
+      expect(response.body.wasm.rowCount).toBeLessThanOrEqual(5000);
+      expect(response.body.exceljs.rowCount).toBe(response.body.wasm.rowCount);
+    },
+    BENCHMARK_TEST_TIMEOUT,
+  );
 
   it('/export/exceljs/download rejects invalid filter dates', async () => {
     await request(app.getHttpServer())

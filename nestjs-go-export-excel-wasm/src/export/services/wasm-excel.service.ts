@@ -8,10 +8,12 @@ import {
 } from '@nestjs/common';
 import { existsSync, promises as fs } from 'fs';
 import { join } from 'path';
-import { Readable } from 'stream';
+import { PassThrough } from 'stream';
+import { finished } from 'stream/promises';
 import {
-  ExportDataset,
+  ExportDatasetStreamPlan,
   ExportExecutionResult,
+  StreamExportExecutionOptions,
   WasmProgress,
 } from '../interfaces/export-data.interface';
 import { WasmChunkCallback } from '../interfaces/wasm-callback.interface';
@@ -44,52 +46,22 @@ export class WasmExcelService
   private queue: Promise<void> = Promise.resolve();
   private queueDepth = 0;
 
-  async initializeExport(headers: string[]): Promise<string[]> {
-    if (!Array.isArray(headers) || headers.length === 0) {
-      throw new ServiceUnavailableException('WASM export headers are required');
-    }
-
-    await this.ensureWasmLoaded();
-    return [...headers];
-  }
-
-  async exportToStream(
-    dataGenerator: AsyncGenerator<Record<string, any>[]>,
-    headers: string[],
-    onProgress?: (progress: WasmProgress) => void,
-  ): Promise<Readable> {
-    const rows: Record<string, any>[] = [];
-    for await (const batch of dataGenerator) {
-      rows.push(...batch);
-    }
-
-    const result = await this.exportDataset(
-      {
-        columns: headers,
-        rows,
-        total: rows.length,
-        seed: 0,
-      },
-      'wasm-export.xlsx',
-      onProgress,
-    );
-
-    return Readable.from(result.buffer);
-  }
-
-  async exportDataset(
-    dataset: ExportDataset,
-    fileName: string,
-    onProgress?: (progress: WasmProgress) => void,
+  async exportPlanToWritable(
+    plan: ExportDatasetStreamPlan,
+    rows: AsyncGenerator<Record<string, any>[]>,
+    options: StreamExportExecutionOptions,
   ): Promise<ExportExecutionResult> {
-    const initializedHeaders = await this.initializeExport(dataset.columns);
+    const initialized = await this.initializeExport(plan.columns, plan.total);
 
     return this.enqueue(async () => {
       const startTime = process.hrtime.bigint();
       const memoryBefore = process.memoryUsage().heapUsed;
-      const chunks: Buffer[] = [];
-
       const runtime = await this.createRuntime();
+      let rowCount = 0;
+      let sizeBytes = 0;
+      let writableEnded = false;
+      let exportError: Error | null = null;
+      let writeChain = Promise.resolve();
 
       try {
         await runtime.waitUntilReady();
@@ -99,16 +71,51 @@ export class WasmExcelService
             return;
           }
 
-          if (status.startsWith('CHUNK:')) {
+          if (status.startsWith('ROW_PROGRESS:')) {
+            const progress = this.parseProgressStatus(status, 'ROW_PROGRESS');
+            if (progress && options.onProgress) {
+              options.onProgress(progress);
+            }
+            return;
+          }
+
+          if (status.startsWith('BYTES:')) {
             if (chunk && chunk.length > 0) {
-              chunks.push(Buffer.from(chunk));
-            }
+              const buffer = Buffer.from(chunk);
+              sizeBytes += buffer.length;
+              writeChain = writeChain.then(async () => {
+                const accepted = options.writable.write(buffer);
+                if (!accepted) {
+                  await new Promise<void>((resolve, reject) => {
+                    const cleanup = () => {
+                      options.writable.off('drain', onDrain);
+                      options.writable.off('error', onError);
+                      options.writable.off('close', onClose);
+                    };
+                    const onDrain = () => {
+                      cleanup();
+                      resolve();
+                    };
+                    const onError = (error: Error) => {
+                      cleanup();
+                      reject(error);
+                    };
+                    const onClose = () => {
+                      cleanup();
+                      reject(
+                        new Error(
+                          'WASM export aborted: writable closed before drain',
+                        ),
+                      );
+                    };
 
-            const progress = this.parseProgressStatus(status);
-            if (progress && onProgress) {
-              onProgress(progress);
+                    options.writable.once('drain', onDrain);
+                    options.writable.once('error', onError);
+                    options.writable.once('close', onClose);
+                  });
+                }
+              });
             }
-
             return;
           }
 
@@ -116,14 +123,14 @@ export class WasmExcelService
         };
 
         const initResult = (global as Record<string, any>).goInitExport(
-          initializedHeaders,
+          initialized.headers,
           callback,
+          initialized.expectedTotalRows,
         );
         this.assertGoResult(initResult, 'Ошибка инициализации WASM');
 
-        const batchSize = 500;
-        for (let index = 0; index < dataset.rows.length; index += batchSize) {
-          const batch = dataset.rows.slice(index, index + batchSize);
+        for await (const batch of rows) {
+          rowCount += batch.length;
           const writeResult = (global as Record<string, any>).goWriteRows(
             JSON.stringify(batch),
           );
@@ -134,43 +141,113 @@ export class WasmExcelService
           global as Record<string, any>
         ).goFinalizeExport();
         this.assertGoResult(finalizeResult, 'Ошибка завершения WASM экспорта');
+        await writeChain;
+        options.writable.end();
+        writableEnded = true;
 
-        const buffer = Buffer.concat(chunks);
         const memoryAfter = process.memoryUsage().heapUsed;
         const durationMs =
           Number(process.hrtime.bigint() - startTime) / 1_000_000;
 
         return {
           variant: 'wasm',
-          buffer,
-          fileName,
+          fileName: options.fileName,
           contentType:
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           durationMs: Number(durationMs.toFixed(2)),
-          sizeBytes: buffer.length,
-          rowCount: dataset.total,
-          columnCount: dataset.columns.length,
+          sizeBytes,
+          rowCount,
+          columnCount: plan.columns.length,
           memoryDeltaBytes: Math.max(0, memoryAfter - memoryBefore),
         };
+      } catch (error) {
+        exportError = error instanceof Error ? error : new Error(String(error));
+        throw error;
       } finally {
+        await writeChain.catch(() => undefined);
+        if (!writableEnded && !options.writable.destroyed) {
+          if (exportError) {
+            options.writable.destroy(exportError);
+          } else {
+            options.writable.end();
+          }
+        }
         runtime.dispose();
       }
     });
+  }
+
+  async exportPlanToBuffer(
+    plan: ExportDatasetStreamPlan,
+    rows: AsyncGenerator<Record<string, any>[]>,
+    fileName: string,
+  ): Promise<{ result: ExportExecutionResult; buffer: Buffer }> {
+    const stream = new PassThrough();
+    const chunks: Buffer[] = [];
+    const streamDone = finished(stream);
+    stream.on('data', (chunk: Buffer | string) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+
+    try {
+      const result = await this.exportPlanToWritable(plan, rows, {
+        writable: stream,
+        fileName,
+      });
+      await streamDone;
+      const buffer = Buffer.concat(chunks);
+
+      return {
+        result: {
+          ...result,
+          sizeBytes: buffer.length,
+        },
+        buffer,
+      };
+    } catch (error) {
+      await streamDone.catch(() => undefined);
+      throw error;
+    }
   }
 
   async testExport(
     headers: string[],
     sampleData: Record<string, any>[],
   ): Promise<boolean> {
-    const dataset = {
+    const plan: ExportDatasetStreamPlan = {
       columns: headers,
-      rows: sampleData,
       total: sampleData.length,
       seed: 0,
+      batchSize: sampleData.length || 1,
+      effectiveLimit: sampleData.length,
+      totalMatching: sampleData.length,
+      startOffset: 0,
     };
 
-    const result = await this.exportDataset(dataset, 'wasm-test.xlsx');
-    return result.sizeBytes > 0;
+    const result = await this.exportPlanToBuffer(
+      plan,
+      (async function* () {
+        await Promise.resolve();
+        yield sampleData;
+      })(),
+      'wasm-test.xlsx',
+    );
+    return result.result.sizeBytes > 0;
+  }
+
+  async initializeExport(
+    headers: string[],
+    expectedTotalRows?: number,
+  ): Promise<{ headers: string[]; expectedTotalRows: number }> {
+    if (!Array.isArray(headers) || headers.length === 0) {
+      throw new ServiceUnavailableException('WASM export headers are required');
+    }
+
+    await this.ensureWasmLoaded();
+    return {
+      headers: [...headers],
+      expectedTotalRows: Math.max(0, expectedTotalRows ?? 0),
+    };
   }
 
   getStatus(): { queued: boolean; hasBinary: boolean } {
@@ -261,9 +338,12 @@ export class WasmExcelService
     }
   }
 
-  private parseProgressStatus(status: string): WasmProgress | null {
+  private parseProgressStatus(
+    status: string,
+    prefix: 'ROW_PROGRESS',
+  ): WasmProgress | null {
     const parts = status.split(':');
-    if (parts.length < 3) {
+    if (parts.length < 3 || parts[0] !== prefix) {
       this.logger.warn(`Ignoring malformed WASM progress status: ${status}`);
       return null;
     }
@@ -357,14 +437,12 @@ export class WasmExcelService
     delete (global as Record<string, any>).goInitExport;
     delete (global as Record<string, any>).goWriteRows;
     delete (global as Record<string, any>).goFinalizeExport;
-    delete (global as Record<string, any>).goSetChunkSize;
-    delete (global as Record<string, any>).goGetProgress;
   }
 
   private resolveWasmAssetsDir(): string {
     const candidates = [
-      join(process.cwd(), 'dist', 'excel-streamer'),
       join(process.cwd(), 'excel-streamer'),
+      join(process.cwd(), 'dist', 'excel-streamer'),
       join(
         process.cwd(),
         'nestjs-go-export-excel-wasm',

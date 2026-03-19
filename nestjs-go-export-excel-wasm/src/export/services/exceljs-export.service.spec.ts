@@ -1,22 +1,34 @@
 import ExcelJS from 'exceljs';
+import { PassThrough, Writable } from 'stream';
 import { ExceljsExportService } from './exceljs-export.service';
-import { ExportDataset } from '../interfaces/export-data.interface';
+import { ExportDatasetStreamPlan } from '../interfaces/export-data.interface';
+import { describe, it, expect } from 'vitest';
 
 describe('ExceljsExportService', () => {
   const service = new ExceljsExportService();
+  const plan: ExportDatasetStreamPlan = {
+    columns: ['ID', 'Name'],
+    total: 2,
+    seed: 42,
+    batchSize: 1,
+    effectiveLimit: 2,
+    totalMatching: 2,
+    startOffset: 0,
+  };
+
+  const createRows = () =>
+    (async function* () {
+      await Promise.resolve();
+      yield [{ ID: 1, Name: 'Alice' }];
+      yield [{ ID: 2, Name: 'Bob' }];
+    })();
 
   it('exports a valid xlsx workbook with dataset metadata', async () => {
-    const dataset: ExportDataset = {
-      columns: ['ID', 'Name'],
-      rows: [
-        { ID: 1, Name: 'Alice' },
-        { ID: 2, Name: 'Bob' },
-      ],
-      total: 2,
-      seed: 42,
-    };
-
-    const result = await service.exportDataset(dataset, 'exceljs-test.xlsx');
+    const { result, buffer } = await service.exportPlanToBuffer(
+      plan,
+      createRows(),
+      'exceljs-test.xlsx',
+    );
 
     expect(result.variant).toBe('exceljs');
     expect(result.fileName).toBe('exceljs-test.xlsx');
@@ -27,10 +39,10 @@ describe('ExceljsExportService', () => {
     expect(result.rowCount).toBe(2);
     expect(result.columnCount).toBe(2);
     expect(result.sizeBytes).toBeGreaterThan(0);
-    expect(result.buffer.subarray(0, 2).toString()).toBe('PK');
+    expect(buffer.subarray(0, 2).toString()).toBe('PK');
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(result.buffer);
+    await workbook.xlsx.load(Buffer.from(buffer) as never);
     const worksheet = workbook.getWorksheet('Data');
 
     expect(worksheet).toBeDefined();
@@ -40,5 +52,31 @@ describe('ExceljsExportService', () => {
     expect(worksheet?.getCell('B2').value).toBe('Alice');
     expect(worksheet?.getCell('A3').value).toBe(2);
     expect(worksheet?.getCell('B3').value).toBe('Bob');
+  });
+
+  it('counts bytes correctly for writables without bytesWritten', async () => {
+    const sink = new PassThrough();
+    const chunks: Buffer[] = [];
+    sink.on('data', (chunk: Buffer | string) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+
+    const writableWithoutBytesWritten = new Writable({
+      write(chunk, _encoding, callback) {
+        sink.write(chunk, callback);
+      },
+      final(callback) {
+        sink.end(callback);
+      },
+    });
+
+    const result = await service.exportPlanToWritable(plan, createRows(), {
+      writable: writableWithoutBytesWritten,
+      fileName: 'exceljs-test.xlsx',
+    });
+
+    const buffer = Buffer.concat(chunks);
+    expect(result.sizeBytes).toBe(buffer.length);
+    expect(buffer.subarray(0, 2).toString()).toBe('PK');
   });
 });

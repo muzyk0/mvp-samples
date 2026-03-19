@@ -1,13 +1,14 @@
 # nestjs-go-export-excel-wasm
 
-Sample для честного сравнения двух Excel-export путей в NestJS, где оба экспортёра (`exceljs` и Go/WASM) читают **один и тот же dataset из SQLite через Prisma**.
+Sample для честного сравнения двух **streaming Excel export** путей в NestJS, где оба экспортёра (`exceljs` и Go/WASM) читают **один и тот же dataset из SQLite через Prisma**.
 
 ## Что внутри
 
 - Prisma ORM + SQLite (`prisma/schema.prisma`, migration, seed)
 - NestJS `PrismaModule` / `PrismaService`
 - единый repository/data-access слой для export dataset
-- два независимых HTTP entrypoint'а:
+- общий stream-plan для обоих экспортёров
+- два HTTP entrypoint'а:
   - `POST /export/exceljs/download`
   - `POST /export/wasm/download`
 - benchmark endpoint:
@@ -21,19 +22,40 @@ Sample для честного сравнения двух Excel-export путе
 Ключевая цель — честное сравнение:
 
 1. данные живут в SQLite;
-2. `ExportDatasetRepository` читает один и тот же набор строк для обоих экспортёров;
-3. `ExportComparisonService` строит dataset **один раз** и передаёт его и в `exceljs`, и в `wasm`;
-4. `seed` влияет на deterministic slice из БД, чтобы запросы оставались воспроизводимыми, даже если источник теперь не in-memory.
+2. `ExportDatasetRepository` строит **одинаковый stream-plan** для обоих экспортёров;
+3. строки читаются из Prisma **батчами**, а не одним большим массивом;
+4. `seed` и `offset` по-прежнему определяют deterministic slice из БД;
+5. benchmark сравнивает именно разницу экспортёров, а не разницу источников данных.
 
-То есть benchmark сравнивает именно разницу экспортёров, а не разницу источников данных.
+### Что реально stream'ится
+
+#### ExcelJS
+
+- используется `ExcelJS.stream.xlsx.WorkbookWriter`;
+- строки коммитятся по мере чтения батчей из Prisma;
+- `.xlsx` пишется сразу в `Writable` (HTTP response или temp file для benchmark);
+- готовый workbook **не собирается целиком в JS buffer** перед ответом.
+
+#### WASM
+
+- JS-слой больше не собирает чанки в памяти перед отправкой;
+- Go/WASM bridge пишет `.xlsx` в кастомный writer, который отдает байты обратно в Node по мере `file.Write(...)`;
+- Node сразу пишет эти байты в `Writable` (HTTP response или temp file для benchmark);
+- итоговый `.xlsx` **не буферится целиком в Node/Nest перед ответом**.
+
+### Что всё ещё не идеально
+
+- Excelize внутри Go/WASM всё ещё управляет собственной внутренней структурой workbook до финальной записи zip-потока; это лучше, чем буферить готовый файл ещё и в Node, но не магически делает zero-memory export.
+- WASM-ветка по-прежнему выполняется последовательно через очередь из-за глобального Go/WASM runtime state.
+- В unit-тестах используются buffer helper'ы, но они нужны только для валидации содержимого generated `.xlsx`, а не для production download path.
 
 ## Prisma / SQLite setup
 
 ```bash
-npm install
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
+bun install
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
 ```
 
 По умолчанию используется `DATABASE_URL="file:./prisma/dev.db"`.
@@ -43,19 +65,40 @@ npm run prisma:seed
 - таблица: `Employee`
 - размер seed dataset по умолчанию: **10_000** сотрудников
 - dataset строится детерминированно через общий генератор (`src/export/data/employee-generator.ts`)
+- seed пишет данные **батчами**, не собирая весь dataset в один большой JS-массив
+- batch insert по умолчанию: **1000** записей за итерацию
 - можно переопределить:
   - `SEED_EMPLOYEE_COUNT`
   - `SEED_DATASET_SEED`
+  - `SEED_BATCH_SIZE`
+
+Пример большого batched seed:
+
+```bash
+SEED_EMPLOYEE_COUNT=200000 SEED_BATCH_SIZE=1000 bun run prisma:seed
+```
+
+## WASM build
+
+`excel-streamer/excel_bridge.wasm` и `excel-streamer/wasm_exec.js` — это **сгенерированные build-артефакты**. Они не должны храниться в git: их нужно собирать локально, в CI или на этапе деплоя.
+
+В окружениях, где Go не в `PATH`, сначала добавь его в `PATH` удобным для твоей системы способом, затем собери WASM:
+
+```bash
+export PATH="/path/to/go/bin:$PATH"
+bun run build:wasm
+```
 
 ## Запуск
 
 ```bash
-npm install
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-npm run build
-npm run start:dev
+bun install
+export PATH="/path/to/go/bin:$PATH" # если нужен rebuild wasm
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
+bun run build
+bun run start:dev
 ```
 
 ## Примеры
@@ -73,7 +116,7 @@ curl -X POST http://localhost:3000/export/data \
 ```bash
 curl -X POST http://localhost:3000/export/exceljs/download \
   -H 'Content-Type: application/json' \
-  -d '{"limit":2000,"seed":12345,"fileName":"exceljs.xlsx"}' \
+  -d '{"limit":2000,"seed":12345,"batchSize":500,"fileName":"exceljs.xlsx"}' \
   --output exceljs.xlsx
 ```
 
@@ -82,7 +125,7 @@ curl -X POST http://localhost:3000/export/exceljs/download \
 ```bash
 curl -X POST http://localhost:3000/export/wasm/download \
   -H 'Content-Type: application/json' \
-  -d '{"limit":2000,"seed":12345,"fileName":"wasm.xlsx"}' \
+  -d '{"limit":2000,"seed":12345,"batchSize":500,"fileName":"wasm.xlsx"}' \
   --output wasm.xlsx
 ```
 
@@ -93,13 +136,13 @@ curl http://localhost:3000/export/benchmark/default
 
 curl -X POST http://localhost:3000/export/benchmark \
   -H 'Content-Type: application/json' \
-  -d '{"limit":5000,"seed":42,"includeMemory":true}'
+  -d '{"limit":5000,"seed":42,"batchSize":500,"includeMemory":true}'
 ```
 
 ### Scripted benchmark
 
 ```bash
-npm run test:comparison
+bun run test:comparison
 ```
 
 Скрипт ожидает поднятое приложение на `BASE_URL` (по умолчанию `http://localhost:3000`) и вызывает `POST /export/benchmark`.
@@ -107,17 +150,12 @@ npm run test:comparison
 ## Проверка локально
 
 ```bash
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-npm run build
-npm test -- --runInBand
-npm run test:e2e -- --runInBand
+export PATH="/path/to/go/bin:$PATH" # если пересобираешь wasm
+bun run build:wasm
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
+bun run build
+bun run test
+bun run test:e2e
 ```
-
-## Замечания
-
-- WASM-ветка всё ещё экспериментальная и запускается последовательно через очередь, чтобы избежать гонок из-за глобального Go/WASM state.
-- Потоковая отдача пока сведена к безопасной отдаче готового `Buffer` в ответ; это менее амбициозно, но стабильнее для сравнения вариантов.
-- Единственный актуальный WASM-артефакт хранится в `excel-streamer/`.
-- Для пересборки `excel_bridge.wasm` нужен Go toolchain; удобнее всего запустить `npm run build:wasm`.
