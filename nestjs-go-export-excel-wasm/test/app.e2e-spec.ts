@@ -230,6 +230,14 @@ describe('Export comparison app (e2e)', () => {
       expect(response.body.diagnostics.memory.wasmLinearMemoryIncluded).toBe(
         false,
       );
+      expect(response.body.diagnostics.executionModel).toEqual({
+        exceljs:
+          'Streams rows directly to the Node writable via ExcelJS WorkbookWriter.',
+        goWasm:
+          'Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.',
+        rustWasm:
+          'Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time.',
+      });
     },
     BENCHMARK_TEST_TIMEOUT,
   );
@@ -253,6 +261,9 @@ describe('Export comparison app (e2e)', () => {
       response.body.deltas.rustWasmVsGoWasm.memoryDeltaBytes,
     ).toBeUndefined();
     expect(response.body.diagnostics.memory.nodeHeapDeltaMeasured).toBe(false);
+    expect(response.body.diagnostics.memory.note).toContain(
+      'includeMemory=false',
+    );
   });
 
   it(

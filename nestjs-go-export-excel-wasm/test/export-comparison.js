@@ -50,6 +50,14 @@ async function main() {
       throw new Error('Benchmark payload is missing one or more variant summaries');
     }
 
+    if (!payload?.deltas?.goWasmVsExceljs || !payload?.deltas?.rustWasmVsExceljs || !payload?.deltas?.rustWasmVsGoWasm) {
+      throw new Error('Benchmark payload is missing one or more delta summaries');
+    }
+
+    if (!payload?.diagnostics?.memory || !payload?.diagnostics?.executionModel) {
+      throw new Error('Benchmark payload is missing diagnostics metadata');
+    }
+
     if (
       payload.exceljs.rowCount !== payload.goWasm.rowCount ||
       payload.exceljs.rowCount !== payload.rustWasm.rowCount

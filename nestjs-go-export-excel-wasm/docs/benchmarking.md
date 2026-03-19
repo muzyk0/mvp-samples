@@ -1,163 +1,122 @@
 # Benchmarking and Large Dataset Runs
 
-Эта инструкция нужна для ручного запуска benchmark'ов и больших прогонов экспорта в проекте `nestjs-go-export-excel-wasm`.
+This guide covers the real benchmark flow for `nestjs-go-export-excel-wasm`.
 
-## Зачем это нужно
+The benchmark compares:
 
-Проект сравнивает три варианта экспорта Excel:
 - `exceljs`
-- `wasm` (Go/WASM)
-- `rust-wasm`
+- `wasm` as `goWasm` in the payload
+- `rust-wasm` as `rustWasm` in the payload
 
-Для больших наборов данных важно смотреть не только на корректность, но и на:
-- время выполнения;
-- потребление памяти;
-- размер итогового файла;
-- устойчивость на больших объёмах (`10k`, `50k`, `100k`, `200k`).
+All three variants use the same SQLite/Prisma-backed dataset plan.
 
-## Важный нюанс про большие seed-данные
+## What the benchmark is trying to measure
 
-`prisma/seed.ts` теперь генерирует сотрудников и делает `createMany` **батчами**, а не строит весь dataset целиком в памяти. Это заметно снижает пиковое потребление RAM и делает прогоны на `100k`/`200k+` практичнее.
+For medium and large datasets, look at:
 
-По умолчанию используется `SEED_BATCH_SIZE=1000`, но его можно менять под машину/драйвер:
+- duration
+- output size
+- row count alignment
+- Node heap delta when `includeMemory=true`
+- stability at larger limits such as `10k`, `50k`, `100k`, and `200k`
 
-```bash
-SEED_BATCH_SIZE=1000 npm run prisma:seed
-```
+## Important memory caveat
 
-Если на очень больших объёмах всё же хочется больше запаса, можно дополнительно увеличить heap Node.js, но это уже fallback, а не обязательное условие batched seed:
+`memoryDeltaBytes` is intentionally narrow:
 
-```bash
-NODE_OPTIONS="--max-old-space-size=4096" SEED_BATCH_SIZE=1000 npm run prisma:seed
-```
+- it reflects Node heap deltas only;
+- it does not instrument Go or Rust WASM linear memory;
+- it should be treated as an application-level comparison signal, not a full profiler.
 
----
+The benchmark response makes this explicit in `diagnostics.memory`.
 
-## 1. Перейти в sample
+## 1. Move into the sample
 
 ```bash
 cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
 ```
 
----
+## 2. Prepare the dataset
 
-## 2. Подготовить большие данные
+Large seeds are inserted in batches, so `prisma/seed.ts` no longer has to build the entire dataset
+in one JS array.
 
-### Пример: 200k записей
+Example `200k` seed:
 
 ```bash
 export SEED_EMPLOYEE_COUNT=200000
 export SEED_DATASET_SEED=20260315
 export SEED_BATCH_SIZE=1000
+
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
 ```
 
-Далее:
+Optional Node heap bump for very large runs:
 
 ```bash
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
+NODE_OPTIONS="--max-old-space-size=4096" SEED_BATCH_SIZE=1000 bun run prisma:seed
 ```
 
-Если данных нужно меньше, можно поменять `SEED_EMPLOYEE_COUNT`, например:
-- `10000`
-- `50000`
-- `100000`
-- `200000`
-
----
-
-## 3. Собрать проект
+## 3. Build everything needed for the benchmark
 
 ```bash
-npm run build
+bun run build:wasm
+bun run build:rust-wasm
+bun run build
 ```
 
-Если нужен пересбор Go/WASM bridge:
+If Go is not already in `PATH`:
 
 ```bash
-npm run build:wasm
+export PATH="/path/to/go/bin:$PATH"
 ```
 
-Если `go` не в `PATH`, сначала добавьте его в окружение.
-
-Если нужен пересбор Rust/WASM bridge:
+If Rust tooling is not already in `PATH`:
 
 ```bash
-npm run build:rust-wasm
+export PATH="$HOME/.cargo/bin:$PATH"
 ```
 
----
-
-## 4. Запустить приложение
-
-### Production build
+## 4. Start the application
 
 ```bash
-PORT=3100 npm run start:prod
+PORT=3100 bun run start:prod
 ```
 
-или эквивалентно:
-
-```bash
-PORT=3100 node dist/src/main.js
-```
-
-После запуска приложение будет доступно на:
-
-```text
-http://localhost:3100
-```
-
-Проверка health:
+Health/status checks:
 
 ```bash
 curl http://localhost:3100/export/exceljs/health
+curl http://localhost:3100/export/wasm/status
+curl http://localhost:3100/export/rust-wasm/status
 ```
 
----
+## 5. Run the scripted benchmark
 
-## 5. Запуск benchmark script
-
-В отдельной консоли:
+In a separate shell:
 
 ```bash
 cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
 ```
 
-### Примеры запусков
-
-#### 10k
+Example runs:
 
 ```bash
-BASE_URL=http://localhost:3100 LIMIT=10000 SEED=12345 npm run test:comparison
+BASE_URL=http://localhost:3100 LIMIT=10000 SEED=12345 bun run test:comparison
+BASE_URL=http://localhost:3100 LIMIT=50000 SEED=12345 bun run test:comparison
+BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 bun run test:comparison
+BASE_URL=http://localhost:3100 LIMIT=200000 SEED=12345 TIMEOUT=300000 bun run test:comparison
 ```
 
-#### 50k
+The helper script fails if:
 
-```bash
-BASE_URL=http://localhost:3100 LIMIT=50000 SEED=12345 npm run test:comparison
-```
+- the benchmark route is unavailable;
+- the payload is missing `exceljs`, `goWasm`, or `rustWasm`;
+- row counts do not match across variants.
 
-#### 100k
-
-```bash
-BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 npm run test:comparison
-```
-
-#### 200k
-
-```bash
-BASE_URL=http://localhost:3100 LIMIT=200000 SEED=12345 TIMEOUT=300000 npm run test:comparison
-```
-
-Для больших наборов данных лучше сразу задавать повышенный timeout.
-
----
-
-## 6. Прямой вызов benchmark endpoint
-
-Если хочется вызывать benchmark без helper script:
+## 6. Call the benchmark route directly
 
 ```bash
 curl -X POST http://localhost:3100/export/benchmark \
@@ -170,94 +129,83 @@ curl -X POST http://localhost:3100/export/benchmark \
   }'
 ```
 
-Можно менять:
+Supported request knobs:
+
 - `limit`
 - `seed`
+- `offset`
+- `batchSize`
 - `fileName`
+- `sheetName`
 - `includeMemory`
+- shared export filters/column selection from `BenchmarkRequestDto`
 
----
+## 7. Current benchmark payload shape
 
-## 7. Как интерпретировать результаты
+Top-level keys:
 
-В benchmark ответе обычно важны:
-- `exceljs.durationMs`
-- `goWasm.durationMs`
-- `rustWasm.durationMs`
-- `exceljs.sizeBytes`
-- `goWasm.sizeBytes`
-- `rustWasm.sizeBytes`
-- `exceljs.memoryDeltaBytes`
-- `goWasm.memoryDeltaBytes`
-- `rustWasm.memoryDeltaBytes`
-- `deltas.*`
+- `request`
+- `exceljs`
+- `goWasm`
+- `rustWasm`
+- `deltas`
+- `diagnostics`
 
-### Важно
+Per-variant summary fields:
 
-`memoryDeltaBytes` — это грубая прикладная метрика, а не идеальный профайлер.
+- `variant`
+- `fileName`
+- `sheetName`
+- `rowCount`
+- `durationMs`
+- `sizeBytes`
+- `memoryDeltaBytes` when `includeMemory=true`
 
-Особенно для Go/Rust WASM это может быть не полной правдой, потому что часть памяти может жить:
-- вне обычного Node heap;
-- внутри wasm runtime;
-- во внутренних буферах stream/runtime.
+Delta keys:
 
-Поэтому memory-результаты лучше интерпретировать как ориентир, а не как абсолютную истину.
+- `goWasmVsExceljs`
+- `rustWasmVsExceljs`
+- `rustWasmVsGoWasm`
 
-### Где сейчас концентрируется память в `rust-wasm`
+Diagnostics keys:
 
-Для больших `limit` у текущего Rust path есть четыре основные точки роста памяти:
+- `diagnostics.memory`
+- `diagnostics.executionModel`
 
-1. JS собирает строки батчей в один payload-объект и затем сериализует его в JSON.
-2. Rust/WASM держит workbook state внутри `rust_xlsxwriter` до финализации ZIP.
-3. Финальный `.xlsx` материализуется целиком в Rust перед возвратом в JS.
-4. Node все еще получает итоговый `Uint8Array`, но больше не делает дополнительную полную
-   копию через `Buffer.from(...)` перед записью в `Writable`: сервис режет этот массив на view-
-   чанки и отдает их в stream pipeline с нормальной backpressure-семантикой.
+## 8. How to read the execution model
 
-Это low-memory behavior для Node-ответа по сравнению с полным JS buffering, но это не true
-streaming XLSX из Rust/WASM.
+`diagnostics.executionModel` should be interpreted literally:
 
-### Почему Rust path пока не переведен на callback/chunk output
+- `exceljs` streams rows directly to the Node writable;
+- `goWasm` accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization;
+- `rustWasm` accumulates workbook state inside Rust/WASM and returns final workbook bytes at finalize time.
 
-`rust_xlsxwriter` умеет `save_to_writer()`, и это подтверждено в текущем prototype. Но в WASM
-варианте это не убирает ключевое ограничение:
+That means:
 
-- workbook все равно собирается полностью до финализации;
-- для возврата в Node через `wasm-bindgen` нужен полный буфер;
-- callback-only redesign сейчас уменьшил бы только JS-side burst во время финальной записи, но не
-  снял бы основной пик памяти внутри Rust/WASM.
+- only the ExcelJS path is true row-streaming XLSX in this sample;
+- both WASM variants can still have meaningful internal workbook memory even though Node does not
+  fully buffer the response path.
 
-Поэтому текущий выбор прагматичный:
-- оставить final-buffer handoff;
-- писать его в `Writable` без дополнительной полной Node-копии;
-- не называть этот путь “streaming XLSX”, пока байты не начнут выходить до финализации workbook.
+## 9. Known limitations
 
----
+### Seed volume
 
-## 8. Рекомендуемый сценарий сравнения
+The seed path is batched, but very large runs can still be constrained by local CPU, disk, and RAM.
 
-Чтобы сравнение было честнее:
+### Go/WASM fairness caveat
 
-1. Использовать один и тот же `seed`
-2. Использовать одинаковый `limit`
-3. Прогонять несколько размеров:
-   - `10000`
-   - `50000`
-   - `100000`
-   - `200000`
-4. На каждый размер делать несколько прогонов
-5. Сравнивать средние значения, а не один случайный запуск
+The Go bridge matches the shared dataset plan, but it still depends on a fragile runtime and
+serialized execution.
 
----
+### Rust/WASM fairness caveat
 
-## 9. Известные ограничения
+The Rust bridge currently uses JSON batch transfer plus final-buffer handoff. This keeps comparison
+semantics close to the Go path, but it is not a claim of true XLSX byte streaming from Rust/WASM.
 
-### Seed на 200k+
-Теперь выполняется батчами и обычно не требует отдельного full-dataset массива в памяти. При желании можно подобрать `SEED_BATCH_SIZE` под конкретную машину.
+### Memory interpretation
 
-### WASM memory metrics
-Могут быть менее показательными, чем для чистого Node-пути. Текущий benchmark явно отражает
-Node heap deltas, но не пытается выдавать грубые цифры за точную оценку Go/Rust WASM
+Node heap deltas are useful, but they are not a substitute for dedicated WASM runtime memory
+instrumentation.
 linear-memory usage.
 
 ### Streaming не означает нулевую память

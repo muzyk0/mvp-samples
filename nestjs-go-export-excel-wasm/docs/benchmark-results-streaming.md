@@ -1,64 +1,53 @@
 # Streaming Benchmark Results
 
-## Environment
+This document records historical benchmark observations and explains how to interpret them now that
+the benchmark payload includes three variants: `exceljs`, `goWasm`, and `rustWasm`.
 
-These benchmark results were collected on a constrained VPS environment, so they should be interpreted as **environment-specific**, not universal.
+## Status of this results file
 
-### Hardware / VM context
-- **Host CPU:** `2x Intel Xeon Gold 6354` **or** `2x Intel Xeon Gold 6226R`
-- **Virtualization:** `KVM`
-- **Allocated CPU:** `1 vCPU`
-- **RAM:** `2 GB DDR4`
+The numeric results below came from an earlier benchmark run before the Rust/WASM path was added to
+the public comparison surface. They remain useful as historical context for the ExcelJS vs Go/WASM
+comparison, but they are not a substitute for a fresh three-variant benchmark run.
 
-### Important note
-The application was **not running on dedicated hardware**. The benchmark should be read as:
+Use `docs/benchmarking.md` for the current commands and payload semantics.
 
-- results on **1 vCPU / 2 GB RAM**,
-- with all usual runtime overheads of Node.js, Prisma, SQLite, and Go/WASM,
-- in a small VM environment.
+## Historical benchmark environment
 
-Because of that:
-- absolute timings will likely improve on stronger hardware,
-- relative behavior may still remain similar,
-- especially for large exports, low RAM and a single vCPU can noticeably affect GC pressure and total runtime.
+These measurements were collected on a constrained VPS and should be treated as environment-specific.
 
----
+- host CPU: `2x Intel Xeon Gold 6354` or `2x Intel Xeon Gold 6226R`
+- virtualization: `KVM`
+- allocated CPU: `1 vCPU`
+- RAM: `2 GB DDR4`
 
-## Project state used for benchmark
+The app was not running on dedicated hardware, so timings include the usual Node.js, Prisma, SQLite,
+and WASM overhead on a small VM.
 
-The benchmark was run after the following work:
-- export paths moved to **streaming** mode,
-- seed rewritten to **batched inserts** for large datasets,
-- explicit export `limit` cap removed so large requests are honored,
-- dataset seeded up to **200,000 rows**.
+## Historical project state
 
----
+The earlier benchmark run was taken after:
 
-## Method
+- export paths were moved to direct-to-writable mode on the Node side;
+- seed generation was rewritten to use batched inserts;
+- the artificial export `limit` cap was removed;
+- the dataset was seeded to `200,000` rows.
 
-Dataset:
-- SQLite + Prisma
-- seeded with **200,000 employees**
+At that point the benchmark compared:
 
-Compared variants:
-- `exceljs` streaming export
-- `wasm` streaming export
+- `exceljs`
+- Go/WASM only
 
-Measured via benchmark endpoint:
-- duration
-- output size
-- row count
-- memory delta (with caveats)
+The current payload shape has since changed to:
 
-### Caveat on memory metrics
-`memoryDeltaBytes` is only a rough application-level signal.
-For `wasm`, it may under-report real memory behavior because some memory can live outside the usual Node.js heap accounting.
+- `exceljs`
+- `goWasm`
+- `rustWasm`
+- `deltas`
+- `diagnostics`
 
----
+## Historical large-limit verification
 
-## Verified large-limit behavior
-
-After removing the artificial export cap, a direct benchmark request with:
+A direct request with:
 
 ```json
 {
@@ -68,20 +57,19 @@ After removing the artificial export cap, a direct benchmark request with:
 }
 ```
 
-returned:
-- `request.limit = 200000`
-- `exceljs.rowCount = 200000`
-- `wasm.rowCount = 200000`
+returned aligned row counts for the variants that existed at the time and confirmed that the
+benchmark honored the requested limit instead of silently clamping it.
 
-So the benchmark now honors the requested large limit instead of silently clamping it down.
+Today the equivalent expectation is stronger:
 
----
+- `request.limit` should reflect the effective limit used by the shared plan;
+- `exceljs.rowCount`, `goWasm.rowCount`, and `rustWasm.rowCount` should all match.
 
-## Benchmark results
+## Historical ExcelJS vs Go/WASM results
 
-### Sweep on 200k dataset
+### Sweep on a 200k dataset
 
-| Requested rows | ExcelJS duration | WASM duration | Winner by speed |
+| Requested rows | ExcelJS duration | Go/WASM duration | Winner by speed |
 |---|---:|---:|---|
 | 10,000 | 1,836.73 ms | 4,798.89 ms | ExcelJS |
 | 50,000 | 4,075.45 ms | 21,193.58 ms | ExcelJS |
@@ -90,76 +78,54 @@ So the benchmark now honors the requested large limit instead of silently clampi
 
 ### Direct 200k benchmark result
 
-#### ExcelJS
+ExcelJS:
+
 - `rowCount = 200000`
 - `sizeBytes = 31,584,649`
 - `durationMs = 39,813.48`
 
-#### WASM
+Go/WASM:
+
 - `rowCount = 200000`
 - `sizeBytes = 18,911,232`
 - `durationMs = 126,261.4`
 
----
+## How to interpret these results today
 
-## Interpretation
+These numbers still suggest that, on that VM:
 
-### What these results suggest on this hardware
-On the tested `1 vCPU / 2 GB RAM` VM:
-- **ExcelJS streaming is consistently faster**
-- **WASM streaming is consistently slower**
-- **WASM produces a smaller XLSX file** for the tested large export
+- ExcelJS was faster;
+- Go/WASM produced a smaller XLSX file for that dataset;
+- the Go/WASM bridge/runtime overhead was material.
 
-### Likely reasons
-#### ExcelJS
-Benefits from:
-- simpler execution model in Node.js,
-- no JS ↔ WASM bridge overhead,
-- lower coordination complexity.
+But they do not answer the newer questions introduced by the Rust path:
 
-#### WASM
-Likely pays extra cost for:
-- JS ↔ WASM boundary crossings,
-- Go runtime overhead inside WASM,
-- more expensive orchestration around the bridge.
+- how `rustWasm.durationMs` compares to both other variants;
+- how `rustWasm.sizeBytes` compares to both other variants;
+- whether Node heap deltas stay comparable across all three variants.
 
-### Important caution
-These timings should **not** be treated as final universal truth for all hardware.
+## Current caveats that apply to any fresh run
 
-On a machine with more CPU and RAM, both variants should improve.
-However, based on the current architecture, it is still reasonable to expect:
-- ExcelJS to remain the faster option,
-- WASM to remain the more experimental path,
-- unless future optimization changes the bridge/runtime cost significantly.
+### Memory
 
----
+`memoryDeltaBytes` remains approximate and reports Node heap deltas only. It does not include
+precise Go or Rust WASM linear-memory usage.
 
-## Known limitations of this benchmark
+### Streaming semantics
 
-1. **Small VM environment**
-   - only `1 vCPU`
-   - only `2 GB RAM`
-   - timings are therefore conservative and potentially noisy
+- `exceljs` streams rows directly to the writable;
+- `goWasm` emits ZIP bytes during finalization after internal workbook accumulation;
+- `rustWasm` currently returns final workbook bytes after internal workbook accumulation.
 
-2. **Memory metric is approximate**
-   - especially for the WASM path
+Do not read "streaming" in this repository as "zero-memory" or "all variants emit bytes before
+finalization."
 
-3. **Streaming does not mean zero memory**
-   - libraries still keep internal workbook state
-   - stream buffers still exist
-   - WASM runtime still has overhead
+### Operational fragility
 
-4. **WASM path remains serialized**
-   - due to global Go/WASM runtime characteristics
+- Go/WASM still relies on serialized execution.
+- Rust/WASM still depends on generated local wasm-bindgen assets and final-buffer transfer.
 
----
+## Next step for current data
 
-## Practical conclusion
-
-If the goal is:
-- **best speed on this environment** → prefer **ExcelJS streaming**
-- **smaller XLSX output** and experimentation with Go/WASM → **WASM** can still be interesting
-
-For production-like large exports on small servers, the current data suggests:
-- streaming is the right direction,
-- but `exceljs` is currently the stronger practical default.
+If you need current numbers, rerun the benchmark with the live three-variant payload and record the
+results under the current key names: `exceljs`, `goWasm`, and `rustWasm`.
