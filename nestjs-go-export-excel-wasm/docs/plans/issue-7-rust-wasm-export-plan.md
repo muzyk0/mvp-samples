@@ -196,26 +196,26 @@ incrementally before workbook finalization
   - Modify: `nestjs-go-export-excel-wasm/docs/benchmarking.md`
   - Modify: `nestjs-go-export-excel-wasm/docs/benchmark-results-streaming.md`
   - Create: `nestjs-go-export-excel-wasm/docs/rust-wasm-notes.md`
-  - [ ] document the new Rust build toolchain and commands, including required Rust target/tooling
+  - [x] document the new Rust build toolchain and commands, including required Rust target/tooling
 and how artifacts are generated locally/CI
-  - [ ] document the new HTTP routes and benchmark payload shape
-  - [ ] document the fairness caveats plainly:
+  - [x] document the new HTTP routes and benchmark payload shape
+  - [x] document the fairness caveats plainly:
   - all variants share the same SQLite/Prisma dataset path
   - ExcelJS streams rows directly to the output writer
   - Go and Rust WASM may still accumulate workbook state internally before final ZIP output
   - benchmark memory numbers mainly represent Node heap unless additional WASM metrics are
 explicitly included
-  - [ ] document the chosen Rust XLSX generation approach and why alternatives were rejected
-  - [ ] document known risks and limitations:
+  - [x] document the chosen Rust XLSX generation approach and why alternatives were rejected
+  - [x] document known risks and limitations:
   - possible non-reentrant runtime requiring serialized execution
   - large-output peak memory inside WASM
   - JS/WASM transfer overhead from JSON batches
   - possible inability to support true XLSX streaming from Rust WASM without custom ZIP/XML
 generation
-  - [ ] write tests for this task:
+  - [x] write tests for this task:
   - update any doc-referenced commands/scripts that have automated checks
   - ensure route names and benchmark payload expectations in e2e tests match the docs
-  - [ ] run all project verification before final acceptance:
+  - [x] run all project verification before final acceptance:
   - build
   - Rust wasm build
   - test
