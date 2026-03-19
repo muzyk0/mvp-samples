@@ -64,6 +64,16 @@ describe('Export comparison app (e2e)', () => {
     expect(response.body.wasm.hasBinary).toBe(true);
   });
 
+  it('/export/rust-wasm/status (GET)', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/export/rust-wasm/status')
+      .expect(200);
+
+    expect(response.body.variant).toBe('rust-wasm');
+    expect(response.body.rustWasm.hasPackage).toBe(true);
+    expect(response.body.rustWasm.hasBinary).toBe(true);
+  });
+
   it('/export/data (POST)', async () => {
     const response = await request(app.getHttpServer())
       .post('/export/data')
@@ -113,6 +123,24 @@ describe('Export comparison app (e2e)', () => {
     expect(body.subarray(0, 2).toString()).toBe('PK');
   });
 
+  it('/export/rust-wasm/download (POST)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/export/rust-wasm/download')
+      .buffer(true)
+      .parse(binaryParser)
+      .send({ limit: 5, seed: 12345, fileName: 'rust-wasm-check.xlsx' })
+      .expect(201);
+
+    expect(response.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(response.headers['content-disposition']).toContain(
+      'rust-wasm-check.xlsx',
+    );
+    const body = response.body as Buffer;
+    expect(body.subarray(0, 2).toString()).toBe('PK');
+  });
+
   it('/export/exceljs/quick rejects invalid query params', async () => {
     await request(app.getHttpServer())
       .get('/export/exceljs/quick?limit=Infinity&seed=abc')
@@ -124,6 +152,24 @@ describe('Export comparison app (e2e)', () => {
     async () => {
       const response = await request(app.getHttpServer())
         .get('/export/wasm/quick?limit=5000&seed=12345')
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      const body = response.body as Buffer;
+      expect(body.subarray(0, 2).toString()).toBe('PK');
+    },
+    BENCHMARK_TEST_TIMEOUT,
+  );
+
+  it(
+    '/export/rust-wasm/quick accepts moderate higher limit values',
+    async () => {
+      const response = await request(app.getHttpServer())
+        .get('/export/rust-wasm/quick?limit=5000&seed=12345')
         .buffer(true)
         .parse(binaryParser)
         .expect(200);

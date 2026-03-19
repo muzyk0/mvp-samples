@@ -104,34 +104,34 @@ like the Go wasm assets rather than introducing a separate backend
   - Modify: `nestjs-go-export-excel-wasm/src/export/interfaces/export-data.interface.ts`
   - Modify: `nestjs-go-export-excel-wasm/src/export/interfaces/wasm-callback.interface.ts`
   - Modify: `nestjs-go-export-excel-wasm/package.json`
-  - [ ] implement a dedicated Rust WASM service that mirrors the current production contract:
+  - [x] implement a dedicated Rust WASM service that mirrors the current production contract:
 initialize assets, instantiate runtime, export to `Writable`, export to buffer for tests, and
 expose status
-  - [ ] decide the JS↔WASM row transfer contract for the first integrated version:
+  - [x] decide the JS↔WASM row transfer contract for the first integrated version:
   - preferred initial option: send JSON batch strings, matching the Go path and minimizing
 fairness drift
   - optional later optimization: structured arrays or columnar transfer only if the JSON overhead
 materially skews comparison
-  - [ ] decide the WASM→JS output contract after the proof of concept:
+  - [x] decide the WASM→JS output contract after the proof of concept:
   - if the Rust crate can only return the complete workbook bytes at finalize, stream that buffer
 into the writable in JS and document that this is low-memory in Node but not true XLSX streaming
 from WASM
   - if chunk callbacks from Rust are practical, use them, but only after verifying they do not add
 unnecessary complexity versus a single final `Uint8Array`
-  - [ ] isolate any runtime-global state and determine whether Rust WASM also needs serialized
+  - [x] isolate any runtime-global state and determine whether Rust WASM also needs serialized
 execution; if the exported JS/WASM module is not safely re-entrant, add a queue analogous to the
 Go service
-  - [ ] define a distinct variant name such as `rust-wasm` in execution result types rather than
+  - [x] define a distinct variant name such as `rust-wasm` in execution result types rather than
 overloading the existing `wasm` label
-  - [ ] add HTTP endpoints parallel to the current pattern, for example:
+  - [x] add HTTP endpoints parallel to the current pattern, for example:
   - `POST /export/rust-wasm/download`
   - `GET /export/rust-wasm/quick`
   - `GET /export/rust-wasm/status`
-  - [ ] write tests for this task:
+  - [x] write tests for this task:
   - service unit test validating a real XLSX workbook for the Rust variant
   - status test validating asset detection/runtime availability
   - controller/e2e tests for the new download/quick/status routes
-  - [ ] run the project unit and e2e suites before task 3
+  - [x] run the project unit and e2e suites before task 3
 ### Task 3: Integrate the Rust variant into comparison and benchmark flows with explicit memory
 semantics
 **Files:**
