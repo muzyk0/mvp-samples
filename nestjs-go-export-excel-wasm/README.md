@@ -89,6 +89,32 @@ export PATH="/path/to/go/bin:$PATH"
 bun run build:wasm
 ```
 
+### Rust WASM proof of concept
+
+`rust-excel-streamer/` — отдельный proof of concept для Rust-to-WASM XLSX генерации. Он пока не
+подключен в HTTP/API sample, а только валидирует архитектуру:
+
+- `rust_xlsxwriter` c feature `wasm`;
+- `wasm32-unknown-unknown`;
+- `wasm-bindgen` wrapper для Node;
+- возврат готового `.xlsx` как `Uint8Array` обратно в Node.
+
+Сборка:
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+bun run build:rust-wasm
+```
+
+Smoke test:
+
+```bash
+bun run test:rust-wasm
+```
+
+На текущем этапе Rust path подтверждает корректную генерацию workbook и JS↔WASM byte handoff, но
+не заявляет true streaming из WASM во время записи строк.
+
 ## Запуск
 
 ```bash
