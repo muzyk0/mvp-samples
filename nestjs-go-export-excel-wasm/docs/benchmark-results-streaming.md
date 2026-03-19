@@ -129,3 +129,19 @@ finalization."
 
 If you need current numbers, rerun the benchmark with the live three-variant payload and record the
 results under the current key names: `exceljs`, `goWasm`, and `rustWasm`.
+
+Recommended command flow:
+
+```bash
+bun run build:wasm
+bun run build:rust-wasm
+bun run build
+PORT=3100 bun run start:prod
+BASE_URL=http://localhost:3100 LIMIT=10000 SEED=12345 bun run test:comparison
+```
+
+If Bun is unavailable in the runtime shell, keep the app running and invoke the helper directly:
+
+```bash
+BASE_URL=http://localhost:3100 LIMIT=10000 SEED=12345 node test/export-comparison.js
+```

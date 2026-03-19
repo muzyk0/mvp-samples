@@ -242,11 +242,28 @@ bun run test:rust-wasm
 Project verification:
 
 ```bash
+bun run build:wasm
+bun run build:rust-wasm
+bun run build
 bun run lint
 bun run test
 bun run test:e2e
-bun run test:comparison
+```
+
+Live benchmark verification:
+
+```bash
+PORT=3000 bun run start:prod
+BASE_URL=http://localhost:3000 bun run test:comparison
 ```
 
 `bun run test:comparison` expects the app to already be running at `BASE_URL` and validates that
-the benchmark payload contains `exceljs`, `goWasm`, and `rustWasm` with aligned row counts.
+the benchmark payload contains `exceljs`, `goWasm`, and `rustWasm`, all three row counts match,
+and the explicit delta keys are present.
+
+If Bun is unavailable in the shell but the app is already running, you can invoke the helper
+directly:
+
+```bash
+BASE_URL=http://localhost:3000 node test/export-comparison.js
+```

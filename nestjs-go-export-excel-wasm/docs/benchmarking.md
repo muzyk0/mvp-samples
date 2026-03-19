@@ -206,37 +206,35 @@ semantics close to the Go path, but it is not a claim of true XLSX byte streamin
 
 Node heap deltas are useful, but they are not a substitute for dedicated WASM runtime memory
 instrumentation.
-linear-memory usage.
 
-### Streaming не означает нулевую память
-Даже streaming экспорт не гарантирует “почти 0 RAM”, потому что:
-- библиотеки всё равно держат внутреннее состояние workbook;
-- есть stream buffers;
-- у Go/Rust `wasm` есть дополнительные runtime overhead'ы.
+## 10. Short happy path
 
-Но streaming всё равно лучше полного buffer-based подхода на больших объёмах.
-
----
-
-## 10. Короткий happy path
-
-Если нужен самый короткий практический сценарий:
+If you want the shortest realistic three-variant benchmark flow:
 
 ```bash
 cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
 export SEED_EMPLOYEE_COUNT=200000
 export SEED_DATASET_SEED=20260315
 export SEED_BATCH_SIZE=1000
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-npm run build
-PORT=3100 npm run start:prod
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
+bun run build:wasm
+bun run build:rust-wasm
+bun run build
+PORT=3100 bun run start:prod
 ```
 
-Потом в другой консоли:
+Then in another shell:
 
 ```bash
 cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
-BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 npm run test:comparison
+BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 bun run test:comparison
+```
+
+If Bun is unavailable in the shell, use:
+
+```bash
+cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
+BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 node test/export-comparison.js
 ```
