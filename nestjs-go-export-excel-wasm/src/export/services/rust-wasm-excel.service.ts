@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { PassThrough, Readable } from 'stream';
+import { PassThrough, Readable, Writable } from 'stream';
 import { finished, pipeline } from 'stream/promises';
 import {
   ExportDatasetStreamPlan,
@@ -77,8 +77,7 @@ export class RustWasmExcelService
           throw new Error('Rust WASM export returned no workbook bytes');
         }
 
-        const buffer = Buffer.from(bytes);
-        await pipeline(Readable.from(buffer), options.writable);
+        await this.writeWorkbookBytes(bytes, options.writable);
 
         const memoryAfter = process.memoryUsage().heapUsed;
         const durationMs =
@@ -90,7 +89,7 @@ export class RustWasmExcelService
           contentType:
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           durationMs: Number(durationMs.toFixed(2)),
-          sizeBytes: buffer.length,
+          sizeBytes: bytes.byteLength,
           rowCount: payload.rows.length,
           columnCount: plan.columns.length,
           memoryDeltaBytes: Math.max(0, memoryAfter - memoryBefore),
@@ -270,6 +269,22 @@ export class RustWasmExcelService
     } finally {
       this.queueDepth = Math.max(0, this.queueDepth - 1);
       release();
+    }
+  }
+
+  private async writeWorkbookBytes(
+    bytes: Uint8Array,
+    writable: Writable,
+  ): Promise<void> {
+    await pipeline(Readable.from(this.chunkWorkbookBytes(bytes)), writable);
+  }
+
+  private *chunkWorkbookBytes(
+    bytes: Uint8Array,
+    chunkSize = 64 * 1024,
+  ): Generator<Uint8Array> {
+    for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
+      yield bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
     }
   }
 

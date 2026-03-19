@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use rust_xlsxwriter::{Workbook, Worksheet, XlsxError};
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
@@ -50,7 +52,13 @@ fn build_workbook(payload: WorkbookPayload) -> Result<Vec<u8>, XlsxError> {
     write_headers(worksheet, &columns)?;
     write_rows(worksheet, &columns, &rows)?;
 
-    workbook.save_to_buffer()
+    // rust_xlsxwriter exposes a writer-based finalize path, but in this WASM
+    // bridge we still need a full in-memory buffer before handing bytes back to
+    // Node through wasm-bindgen.
+    let mut cursor = Cursor::new(Vec::new());
+    workbook.save_to_writer(&mut cursor)?;
+
+    Ok(cursor.into_inner())
 }
 
 fn write_headers(worksheet: &mut Worksheet, columns: &[String]) -> Result<(), XlsxError> {
