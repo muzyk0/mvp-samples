@@ -33,7 +33,13 @@ describe('RustWasmExcelService', () => {
 
     const rows = (async function* () {
       await Promise.resolve();
-      yield [{ ID: 1, Name: 'Alice', JoinedAt: new Date('2026-03-15T00:00:00.000Z') }];
+      yield [
+        {
+          ID: 1,
+          Name: 'Alice',
+          JoinedAt: new Date('2026-03-15T00:00:00.000Z'),
+        },
+      ];
       yield [{ ID: 2, Name: 'Bob', JoinedAt: null }];
     })();
 

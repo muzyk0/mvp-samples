@@ -212,12 +212,24 @@ describe('Export comparison app (e2e)', () => {
 
       expect(response.body.request.limit).toBe(2000);
       expect(response.body.exceljs.variant).toBe('exceljs');
-      expect(response.body.wasm.variant).toBe('wasm');
+      expect(response.body.goWasm.variant).toBe('wasm');
+      expect(response.body.rustWasm.variant).toBe('rust-wasm');
       expect(response.body.exceljs.sizeBytes).toBeGreaterThan(0);
-      expect(response.body.wasm.sizeBytes).toBeGreaterThan(0);
+      expect(response.body.goWasm.sizeBytes).toBeGreaterThan(0);
+      expect(response.body.rustWasm.sizeBytes).toBeGreaterThan(0);
       expect(response.body.exceljs.buffer).toBeUndefined();
-      expect(response.body.wasm.buffer).toBeUndefined();
-      expect(typeof response.body.delta.memoryDeltaBytes).toBe('number');
+      expect(response.body.goWasm.buffer).toBeUndefined();
+      expect(response.body.rustWasm.buffer).toBeUndefined();
+      expect(typeof response.body.deltas.goWasmVsExceljs.memoryDeltaBytes).toBe(
+        'number',
+      );
+      expect(
+        typeof response.body.deltas.rustWasmVsExceljs.memoryDeltaBytes,
+      ).toBe('number');
+      expect(response.body.diagnostics.memory.nodeHeapDeltaMeasured).toBe(true);
+      expect(response.body.diagnostics.memory.wasmLinearMemoryIncluded).toBe(
+        false,
+      );
     },
     BENCHMARK_TEST_TIMEOUT,
   );
@@ -229,8 +241,18 @@ describe('Export comparison app (e2e)', () => {
       .expect(201);
 
     expect(response.body.exceljs.memoryDeltaBytes).toBeUndefined();
-    expect(response.body.wasm.memoryDeltaBytes).toBeUndefined();
-    expect(response.body.delta.memoryDeltaBytes).toBeUndefined();
+    expect(response.body.goWasm.memoryDeltaBytes).toBeUndefined();
+    expect(response.body.rustWasm.memoryDeltaBytes).toBeUndefined();
+    expect(
+      response.body.deltas.goWasmVsExceljs.memoryDeltaBytes,
+    ).toBeUndefined();
+    expect(
+      response.body.deltas.rustWasmVsExceljs.memoryDeltaBytes,
+    ).toBeUndefined();
+    expect(
+      response.body.deltas.rustWasmVsGoWasm.memoryDeltaBytes,
+    ).toBeUndefined();
+    expect(response.body.diagnostics.memory.nodeHeapDeltaMeasured).toBe(false);
   });
 
   it(
@@ -244,9 +266,19 @@ describe('Export comparison app (e2e)', () => {
       expect(response.body.request.limit).toBe(5000);
       expect(response.body.exceljs.rowCount).toBeGreaterThan(0);
       expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(5000);
-      expect(response.body.wasm.rowCount).toBeGreaterThan(0);
-      expect(response.body.wasm.rowCount).toBeLessThanOrEqual(5000);
-      expect(response.body.exceljs.rowCount).toBe(response.body.wasm.rowCount);
+      expect(response.body.goWasm.rowCount).toBeGreaterThan(0);
+      expect(response.body.goWasm.rowCount).toBeLessThanOrEqual(5000);
+      expect(response.body.rustWasm.rowCount).toBeGreaterThan(0);
+      expect(response.body.rustWasm.rowCount).toBeLessThanOrEqual(5000);
+      expect(response.body.exceljs.rowCount).toBe(
+        response.body.goWasm.rowCount,
+      );
+      expect(response.body.exceljs.rowCount).toBe(
+        response.body.rustWasm.rowCount,
+      );
+      expect(response.body.goWasm.rowCount).toBe(
+        response.body.rustWasm.rowCount,
+      );
     },
     BENCHMARK_TEST_TIMEOUT,
   );

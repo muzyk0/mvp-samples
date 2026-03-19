@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-require-imports */
 import {
   BeforeApplicationShutdown,
   Injectable,
@@ -31,7 +31,10 @@ export class RustWasmExcelService
 {
   private readonly logger = new Logger(RustWasmExcelService.name);
   private readonly rustAssetsDir = this.getRustAssetsDir();
-  private readonly rustModulePath = join(this.rustAssetsDir, 'rust_excel_streamer.js');
+  private readonly rustModulePath = join(
+    this.rustAssetsDir,
+    'rust_excel_streamer.js',
+  );
   private readonly rustBinaryPath = join(
     this.rustAssetsDir,
     'rust_excel_streamer_bg.wasm',
@@ -60,9 +63,15 @@ export class RustWasmExcelService
       let exportError: Error | null = null;
 
       try {
-        const payload = await this.buildPayload(plan.columns, rows, options.sheetName);
+        const payload = await this.buildPayload(
+          plan.columns,
+          rows,
+          options.sheetName,
+        );
         const module = await this.ensureRustLoaded();
-        const bytes = module.generate_workbook_from_json(JSON.stringify(payload));
+        const bytes = module.generate_workbook_from_json(
+          JSON.stringify(payload),
+        );
 
         if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
           throw new Error('Rust WASM export returned no workbook bytes');
@@ -128,7 +137,9 @@ export class RustWasmExcelService
       };
     } catch (error) {
       if (!stream.destroyed) {
-        stream.destroy(error instanceof Error ? error : new Error(String(error)));
+        stream.destroy(
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
       await streamDone.catch(() => undefined);
       throw error;
@@ -211,7 +222,7 @@ export class RustWasmExcelService
     return this.rustLoadPromise;
   }
 
-  private async loadRustModule(): Promise<RustWasmModule> {
+  private loadRustModule(): Promise<RustWasmModule> {
     if (!existsSync(this.rustModulePath) || !existsSync(this.rustBinaryPath)) {
       throw new ServiceUnavailableException(
         `Rust WASM assets are not available yet. Expected files in ${this.rustAssetsDir}. Run "bun run build:rust-wasm".`,
@@ -231,7 +242,7 @@ export class RustWasmExcelService
       }
 
       this.rustModule = loadedModule;
-      return loadedModule;
+      return Promise.resolve(loadedModule);
     } catch (error) {
       this.logger.error(
         `Failed to load Rust WASM assets from ${this.rustAssetsDir}: ${error instanceof Error ? error.message : String(error)}`,
