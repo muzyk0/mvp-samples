@@ -155,7 +155,6 @@ Per-variant summary fields:
 
 - `variant`
 - `fileName`
-- `sheetName`
 - `rowCount`
 - `durationMs`
 - `sizeBytes`

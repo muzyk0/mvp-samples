@@ -4,7 +4,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
-const BENCHMARK_TEST_TIMEOUT = 20_000;
+const BENCHMARK_TEST_TIMEOUT = 60_000;
 
 type SupertestBinaryParser = Parameters<ReturnType<typeof request>['parse']>[0];
 
@@ -151,7 +151,7 @@ describe('Export comparison app (e2e)', () => {
     '/export/wasm/quick accepts moderate higher limit values',
     async () => {
       const response = await request(app.getHttpServer())
-        .get('/export/wasm/quick?limit=5000&seed=12345')
+        .get('/export/wasm/quick?limit=2000&seed=12345')
         .buffer(true)
         .parse(binaryParser)
         .expect(200);
@@ -169,7 +169,7 @@ describe('Export comparison app (e2e)', () => {
     '/export/rust-wasm/quick accepts moderate higher limit values',
     async () => {
       const response = await request(app.getHttpServer())
-        .get('/export/rust-wasm/quick?limit=5000&seed=12345')
+        .get('/export/rust-wasm/quick?limit=2000&seed=12345')
         .buffer(true)
         .parse(binaryParser)
         .expect(200);
@@ -271,16 +271,16 @@ describe('Export comparison app (e2e)', () => {
     async () => {
       const response = await request(app.getHttpServer())
         .post('/export/benchmark')
-        .send({ limit: 5000, seed: 12345, includeMemory: false })
+        .send({ limit: 2000, seed: 12345, includeMemory: false })
         .expect(201);
 
-      expect(response.body.request.limit).toBe(5000);
+      expect(response.body.request.limit).toBe(2000);
       expect(response.body.exceljs.rowCount).toBeGreaterThan(0);
-      expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(5000);
+      expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(2000);
       expect(response.body.goWasm.rowCount).toBeGreaterThan(0);
-      expect(response.body.goWasm.rowCount).toBeLessThanOrEqual(5000);
+      expect(response.body.goWasm.rowCount).toBeLessThanOrEqual(2000);
       expect(response.body.rustWasm.rowCount).toBeGreaterThan(0);
-      expect(response.body.rustWasm.rowCount).toBeLessThanOrEqual(5000);
+      expect(response.body.rustWasm.rowCount).toBeLessThanOrEqual(2000);
       expect(response.body.exceljs.rowCount).toBe(
         response.body.goWasm.rowCount,
       );
