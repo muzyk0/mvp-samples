@@ -161,7 +161,7 @@ jobs:
 
       - name: Run comparison validation
         run: |
-          PORT=3100 bun run dist/src/main.js &
+          PORT=3100 node dist/src/main.js &
           APP_PID=$!
           trap 'kill $APP_PID' EXIT
           for i in {1..30}; do
