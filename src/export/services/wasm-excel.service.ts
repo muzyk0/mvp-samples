@@ -443,13 +443,6 @@ export class WasmExcelService
     const candidates = [
       join(process.cwd(), 'excel-streamer'),
       join(process.cwd(), 'dist', 'excel-streamer'),
-      join(
-        process.cwd(),
-        'nestjs-go-export-excel-wasm',
-        'dist',
-        'excel-streamer',
-      ),
-      join(process.cwd(), 'nestjs-go-export-excel-wasm', 'excel-streamer'),
       join(__dirname, '../../../excel-streamer'),
       join(__dirname, '../../../../excel-streamer'),
     ];

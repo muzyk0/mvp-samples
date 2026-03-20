@@ -2,20 +2,11 @@ name: CI
 
 on:
   push:
-    paths:
-      - 'nestjs-go-export-excel-wasm/**'
-      - '.github/workflows/nestjs-go-export-excel-wasm-ci.yml'
   pull_request:
-    paths:
-      - 'nestjs-go-export-excel-wasm/**'
-      - '.github/workflows/nestjs-go-export-excel-wasm-ci.yml'
 
 jobs:
   nestjs-go-export-excel-wasm:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: nestjs-go-export-excel-wasm
 
     steps:
       - name: Checkout
@@ -29,7 +20,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: nestjs-go-export-excel-wasm/excel-streamer/go.mod
+          go-version-file: excel-streamer/go.mod
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

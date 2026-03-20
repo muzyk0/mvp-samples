@@ -1,6 +1,6 @@
 # Benchmarking and Large Dataset Runs
 
-Эта инструкция нужна для ручного запуска benchmark'ов и больших прогонов экспорта в проекте `nestjs-go-export-excel-wasm`.
+Эта инструкция нужна для ручного запуска benchmark'ов и больших прогонов экспорта в этом репозитории.
 
 ## Зачем это нужно
 
@@ -35,7 +35,7 @@ NODE_OPTIONS="--max-old-space-size=4096" SEED_BATCH_SIZE=1000 npm run prisma:see
 ## 1. Перейти в sample
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
+cd /home/admin/.openclaw/workspace/projects/mvp-samples
 ```
 
 ---
@@ -115,7 +115,7 @@ curl http://localhost:3100/export/exceljs/health
 В отдельной консоли:
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
+cd /home/admin/.openclaw/workspace/projects/mvp-samples
 ```
 
 ### Примеры запусков
@@ -234,7 +234,7 @@ curl -X POST http://localhost:3100/export/benchmark \
 Если нужен самый короткий практический сценарий:
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
+cd /home/admin/.openclaw/workspace/projects/mvp-samples
 export SEED_EMPLOYEE_COUNT=200000
 export SEED_DATASET_SEED=20260315
 export SEED_BATCH_SIZE=1000
@@ -248,6 +248,6 @@ PORT=3100 npm run start:prod
 Потом в другой консоли:
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples/nestjs-go-export-excel-wasm
+cd /home/admin/.openclaw/workspace/projects/mvp-samples
 BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 npm run test:comparison
 ```

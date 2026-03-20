@@ -1,5 +1,5 @@
 # 1. Перейдите в директорию с проектом
-cd nestjs-go-export-excel-wasm/excel-streamer
+cd excel-streamer
 
 # 2. Установите зависимости Go
 go mod tidy
