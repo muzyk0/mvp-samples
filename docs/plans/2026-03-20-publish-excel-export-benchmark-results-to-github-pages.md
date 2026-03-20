@@ -80,13 +80,13 @@ Add a benchmark publishing pipeline that runs the existing three-exporter compar
 - Create: `scripts/benchmarks/__tests__/history-store.spec.ts`
 - Create: `scripts/benchmarks/__tests__/import-recorded-run.spec.ts`
 
-- [ ] store each benchmark run as an immutable JSON file under a date-based directory structure, for example `benchmarks/data/runs/<lane>/<environment>/<yyyy>/<mm>/<timestamp>-<sha>.json`
-- [ ] derive machine-readable indexes from raw snapshots, including latest-per-lane pointers, per-scenario trend series, and implementation metadata indexes
-- [ ] keep raw run documents append-only so historical results remain preserved across runs
-- [ ] support manual import of pre-collected recorded-run JSON from stronger hardware so the project can publish more stable benchmarks without coupling publication to GitHub-hosted runner performance
-- [ ] ensure history indexes remain environment-aware so continuous GitHub-hosted results and recorded dedicated-hardware results are not mixed into the same trend line unless explicitly modeled as the same environment
-- [ ] write tests for append-only storage, index rebuilds, duplicate handling, and recorded-run import validation
-- [ ] run task-level validation before task 3
+- [x] store each benchmark run as an immutable JSON file under a date-based directory structure, for example `benchmarks/data/runs/<lane>/<environment>/<yyyy>/<mm>/<timestamp>-<sha>.json`
+- [x] derive machine-readable indexes from raw snapshots, including latest-per-lane pointers, per-scenario trend series, and implementation metadata indexes
+- [x] keep raw run documents append-only so historical results remain preserved across runs
+- [x] support manual import of pre-collected recorded-run JSON from stronger hardware so the project can publish more stable benchmarks without coupling publication to GitHub-hosted runner performance
+- [x] ensure history indexes remain environment-aware so continuous GitHub-hosted results and recorded dedicated-hardware results are not mixed into the same trend line unless explicitly modeled as the same environment
+- [x] write tests for append-only storage, index rebuilds, duplicate handling, and recorded-run import validation
+- [x] run task-level validation before task 3
 
 ### Task 3: Generate a static GitHub Pages site from stored benchmark data
 
