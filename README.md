@@ -1,84 +1,112 @@
 # mvp-samples
 
-Набор независимых MVP, прототипов и технических экспериментов.
+NestJS sample for a fair Excel export comparison across three implementations that all read the
+same SQLite/Prisma dataset:
 
-Репозиторий общий: здесь могут жить несколько отдельных sample-проектов с разным стеком, разной степенью готовности и разными целями:
-- проверить идею;
-- сравнить подходы;
-- собрать воспроизводимый technical spike;
-- оставить полезный reference implementation.
+- `exceljs`
+- `wasm` (Go/WASM)
+- `rust-wasm`
 
-## Как устроен репозиторий
+This is not a generic export demo. The sample exists to compare exporter behavior while keeping
+data access, request parameters, and benchmark semantics aligned.
 
-Каждая подпапка верхнего уровня — отдельный sample со своей документацией, зависимостями и правилами запуска.
+## What is in the project
 
-Примеры:
-- `nestjs-go-export-excel-wasm/` — NestJS sample для сравнения двух Excel-export подходов: `exceljs` vs Go/WASM через SQLite + Prisma.
+- SQLite + Prisma dataset and seed flow
+- shared repository-backed export data pipeline
+- shared stream-plan generation for every exporter
+- three HTTP download surfaces:
+  - `POST /export/exceljs/download`
+  - `POST /export/wasm/download`
+  - `POST /export/rust-wasm/download`
+- quick/status routes:
+  - `GET /export/exceljs/quick`
+  - `GET /export/exceljs/health`
+  - `GET /export/wasm/quick`
+  - `GET /export/wasm/status`
+  - `GET /export/rust-wasm/quick`
+  - `GET /export/rust-wasm/status`
+- comparison/benchmark routes:
+  - `GET /export/benchmark/default`
+  - `POST /export/benchmark`
+- dataset preview:
+  - `POST /export/data`
 
-## Правила для людей
+## Comparison rules
 
-### 1. Смотри локальный README внутри sample
-Корневой README объясняет только структуру репозитория.
+The sample treats fairness as a feature:
 
-За запуском, миграциями, seed, endpoint'ами, тестами и ограничениями нужно идти в README конкретного sample:
-- `./nestjs-go-export-excel-wasm/README.md`
+1. data lives in SQLite, not in exporter-specific in-memory sources;
+2. `ExportDatasetRepository` and `DataGeneratorService` build the same effective plan for all exporters;
+3. Prisma rows are read in batches;
+4. `seed`, `offset`, filters, and selected columns stay aligned across variants;
+5. benchmark output compares exporter behavior, not dataset drift.
 
-### 2. Не предполагается единый root runtime
-У этого репозитория нет обязательного общего `npm install` / `npm test` на корне.
+## Execution model
 
-Работать нужно из папки нужного sample.
+### ExcelJS
 
-### 3. Samples могут быть experimental
-Некоторые проекты здесь intentionally experimental. Это нормально.
+- uses `ExcelJS.stream.xlsx.WorkbookWriter`;
+- commits rows as batches arrive from Prisma;
+- writes `.xlsx` bytes directly to the target `Writable`;
+- is the only path in this sample that is true row-to-writable streaming.
 
-Но даже эксперимент должен быть:
-- воспроизводимым;
-- запускаемым;
-- документированным;
-- честным в своих ограничениях.
+### Go/WASM
 
-### 4. Старые неработающие решения не храним как «на всякий случай»
-Если подход признан устаревшим или больше не является частью актуального sample, его лучше удалить, чем держать мёртвым грузом.
+- keeps workbook state inside the Go/WASM runtime;
+- emits ZIP bytes back to Node during finalization callbacks;
+- Node writes those bytes directly to the HTTP response or temp file;
+- does not keep the final XLSX buffered in Node, but still accumulates workbook state inside WASM.
 
-## Текущие samples
+### Rust/WASM
 
-### `nestjs-go-export-excel-wasm`
-Что это:
-- сравнение двух способов экспорта Excel в NestJS;
-- один и тот же dataset из SQLite/Prisma;
-- два экспортёра:
-  - `exceljs`
-  - `wasm`
-- benchmark endpoint и automated tests.
+- materializes the selected dataset in memory before invoking the Rust bridge;
+- generates the workbook inside a Rust/WASM module via `rust_xlsxwriter`;
+- returns a final XLSX buffer back to Node;
+- is useful as a comparison point, but is not a fully streaming path today.
 
-Начать отсюда:
-- [`nestjs-go-export-excel-wasm/README.md`](./nestjs-go-export-excel-wasm/README.md)
+## Setup
 
-## Рекомендации по добавлению новых sample-проектов
-
-Если добавляется новый sample, желательно сразу положить:
-- `README.md` — для людей;
-- `AGENTS.md` — для LLM/агентов;
-- локальные scripts для build/test/run;
-- минимально воспроизводимую setup-инструкцию.
-
-Хороший шаблон для новой папки:
-
-```text
-my-sample/
-  README.md
-  AGENTS.md
-  package.json | go.mod | Cargo.toml | ...
-  src/
-  test/
+```bash
+bun install
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
+bun run build:wasm
+bun run build:rust-wasm
 ```
 
-## Статус репозитория
+If Go is not already in `PATH`:
 
-Это не monorepo с жёсткой унификацией, а коллекция отдельных MVP.
+```bash
+export PATH="/path/to/go/bin:$PATH"
+```
 
-Поэтому здесь важнее:
-- ясность структуры;
-- локальная документация в каждой папке;
-- чистые и актуальные samples;
-- отсутствие мёртвых хвостов.
+If Rust tooling is not already in `PATH`:
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+## Run locally
+
+```bash
+bun run start:dev
+```
+
+## Test locally
+
+```bash
+bun run build
+bun run test
+bun run test:e2e
+bun run test:comparison
+bun run test:rust-wasm
+```
+
+## Docs
+
+- `docs/benchmarking.md`
+- `docs/benchmark-results-streaming.md`
+- `docs/rust-wasm-notes.md`
+- `docs/plans/completed/issue-7-rust-wasm-export-plan.md`

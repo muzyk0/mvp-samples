@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "nestjs-go-export-excel-wasm",
+      "name": "mvp-samples",
       "dependencies": {
         "@libsql/client": "^0.15.15",
         "@nestjs/common": "^11.1.17",

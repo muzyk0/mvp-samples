@@ -1,5 +1,5 @@
 {
-  "name": "nestjs-go-export-excel-wasm",
+  "name": "mvp-samples",
   "version": "0.0.1",
   "description": "",
   "author": "",
@@ -22,7 +22,7 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism run --config vitest.unit.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:comparison": "bun test/export-comparison.js",
-    "prepare": "sh -c 'git rev-parse --show-toplevel >/dev/null 2>&1 && git config core.hooksPath nestjs-go-export-excel-wasm/.husky || true'",
+    "prepare": "sh -c 'git rev-parse --show-toplevel >/dev/null 2>&1 && git config core.hooksPath .husky || true'",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init-sqlite",
     "prisma:seed": "ts-node --project tsconfig.json prisma/seed.ts",
