@@ -1,0 +1,50 @@
+{
+  "exceljs": {
+    "id": "exceljs",
+    "label": "ExcelJS",
+    "sourceKeys": [
+      "exceljs"
+    ],
+    "variants": [
+      "exceljs"
+    ],
+    "executionModels": [
+      "Streams rows directly to the Node writable via ExcelJS WorkbookWriter."
+    ],
+    "contentTypes": [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ]
+  },
+  "goWasm": {
+    "id": "goWasm",
+    "label": "Go/WASM",
+    "sourceKeys": [
+      "goWasm"
+    ],
+    "variants": [
+      "wasm"
+    ],
+    "executionModels": [
+      "Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks."
+    ],
+    "contentTypes": [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ]
+  },
+  "rustWasm": {
+    "id": "rustWasm",
+    "label": "Rust/WASM",
+    "sourceKeys": [
+      "rustWasm"
+    ],
+    "variants": [
+      "rust-wasm"
+    ],
+    "executionModels": [
+      "Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time."
+    ],
+    "contentTypes": [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ]
+  }
+}
