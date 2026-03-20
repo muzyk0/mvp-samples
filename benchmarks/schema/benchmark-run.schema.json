@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mvp-samples.local/schemas/benchmark-run.schema.json",
+  "title": "Normalized benchmark run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "lane",
+    "collectedAt",
+    "profile",
+    "source",
+    "git",
+    "runner",
+    "toolchain",
+    "scenario",
+    "samples"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "lane": {
+      "enum": ["continuous", "recorded"]
+    },
+    "collectedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "path", "environmentLabel"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "environmentLabel": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint", "method", "baseUrl"],
+      "properties": {
+        "endpoint": {
+          "const": "/export/benchmark"
+        },
+        "method": {
+          "const": "POST"
+        },
+        "baseUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitSha", "shortSha", "branch", "isDirty"],
+      "properties": {
+        "commitSha": {
+          "type": "string"
+        },
+        "shortSha": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "isDirty": {
+          "type": "boolean"
+        }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environmentLabel",
+        "hostname",
+        "platform",
+        "arch",
+        "cpuCount",
+        "totalMemoryBytes"
+      ],
+      "properties": {
+        "environmentLabel": {
+          "type": "string"
+        },
+        "hostname": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "arch": {
+          "type": "string"
+        },
+        "cpuCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cpuModel": {
+          "type": "string"
+        },
+        "totalMemoryBytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeVersion",
+        "npmVersion",
+        "bunVersion",
+        "goVersion",
+        "rustVersion"
+      ],
+      "properties": {
+        "nodeVersion": {
+          "type": "string"
+        },
+        "npmVersion": {
+          "type": "string"
+        },
+        "bunVersion": {
+          "type": "string"
+        },
+        "goVersion": {
+          "type": "string"
+        },
+        "rustVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "sampleCount", "warmupCount", "request"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "sampleCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warmupCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/sample"
+      }
+    }
+  },
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limit", "seed", "columns", "fileName", "includeMemory"],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "fileName": {
+          "type": "string"
+        },
+        "sheetName": {
+          "type": "string"
+        },
+        "includeHeaders": {
+          "type": "boolean"
+        },
+        "includeMemory": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sampleIndex",
+        "collectedAt",
+        "request",
+        "implementations",
+        "comparisons",
+        "diagnostics"
+      ],
+      "properties": {
+        "sampleIndex": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "collectedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["limit", "seed", "columns"],
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "columns": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "implementations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/implementation"
+          }
+        },
+        "comparisons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comparison"
+          }
+        },
+        "diagnostics": {
+          "$ref": "#/$defs/diagnostics"
+        }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "sourceKey",
+        "variant",
+        "executionModel",
+        "metrics"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "sourceKey": {
+          "type": "string"
+        },
+        "variant": {
+          "type": "string"
+        },
+        "executionModel": {
+          "type": "string"
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["durationMs", "sizeBytes", "rowCount", "columnCount"],
+          "properties": {
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rowCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "columnCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "memoryDeltaBytes": {
+              "type": "integer"
+            }
+          }
+        },
+        "fileName": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "baselineImplementationId",
+        "contenderImplementationId",
+        "metrics"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "baselineImplementationId": {
+          "type": "string"
+        },
+        "contenderImplementationId": {
+          "type": "string"
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["durationMsDelta", "sizeBytesDelta"],
+          "properties": {
+            "durationMsDelta": {
+              "type": "number"
+            },
+            "sizeBytesDelta": {
+              "type": "integer"
+            },
+            "memoryDeltaBytesDelta": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["memory", "executionModel"],
+      "properties": {
+        "memory": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nodeHeapDeltaMeasured",
+            "wasmLinearMemoryIncluded",
+            "note"
+          ],
+          "properties": {
+            "nodeHeapDeltaMeasured": {
+              "type": "boolean"
+            },
+            "wasmLinearMemoryIncluded": {
+              "type": "boolean"
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
+        "executionModel": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -11,6 +11,78 @@ The benchmark compares:
 
 All three variants use the same SQLite/Prisma-backed dataset plan.
 
+Treat these benchmark modes as different jobs:
+
+- smoke testing: quick local confidence checks such as `bun run test:comparison` against a running app
+- continuous benchmark publication: pinned GitHub-hosted runner collection that updates the Pages site from `master`
+- recorded benchmark publication: normalized JSON imported from stronger or more stable hardware without rerunning in GitHub Actions
+
+## Benchmark pipeline boundaries
+
+Keep these steps distinct:
+
+- collection, history/index generation, site generation, and publication are separate commands
+- raw collection still uses `POST /export/benchmark` as the only measurement source
+- site generation reads stored indexes only and never calls the Nest app
+- validation checks the stored run schema, derived indexes, latest pointers, and generated site files
+
+## Benchmark lanes
+
+Two lanes are supported and should be interpreted separately:
+
+- continuous lane: automatic GitHub-hosted runner collection for always-current repository status
+- recorded lane: imported stronger-hardware runs that should remain separate unless explicitly modeled as the same environment
+
+Both lane and `runner.environmentLabel` are part of the storage and trend identity.
+
+Continuous publication should be treated as a reproducible baseline, not as the highest-quality
+performance number available. Recorded runs exist specifically so you can preserve measurements from
+hardware that is faster or less noisy than the shared GitHub runner pool.
+
+## Reproducible collector contract
+
+Automated benchmark collection is defined by:
+
+- profile: `benchmarks/profiles/continuous-default.json`
+- normalized run schema: `benchmarks/schema/benchmark-run.schema.json`
+- collector: `scripts/benchmarks/collect-benchmark-results.ts`
+
+The collector does not add a second benchmark path. It always measures `POST /export/benchmark`,
+then normalizes that controller response into a schema-validated run document with:
+
+- `lane` as `continuous` or `recorded`
+- scenario metadata and pinned request shape
+- generic `implementations[]` entries instead of hard-coded site-facing keys
+- sample timestamps
+- git metadata
+- runner metadata
+- toolchain metadata
+
+The continuous profile currently locks:
+
+- `seed = 12345`
+- `limit = 2000`
+- explicit column selection
+- `includeMemory = true`
+- `warmupCount = 1`
+- `sampleCount = 3`
+- app start command and health checks
+
+## Storage contract
+
+Raw and derived benchmark artifacts are file-based:
+
+- raw run snapshots: `benchmarks/data/runs/<lane>/<environment>/<yyyy>/<mm>/<timestamp>-<sha>.json`
+- derived indexes: `benchmarks/data/indexes/history-index.json`
+- derived indexes: `benchmarks/data/indexes/latest-runs.json`
+- derived indexes: `benchmarks/data/indexes/run-summaries.json`
+- derived indexes: `benchmarks/data/indexes/scenario-trends.json`
+- derived indexes: `benchmarks/data/indexes/implementations.json`
+
+Future exporters should be added through the normalized schema and implementation metadata indexes,
+not by hard-coding new site sections. The site reads the generic implementation list from stored
+data.
+
 ## What the benchmark is trying to measure
 
 For medium and large datasets, look at:
@@ -27,7 +99,8 @@ For medium and large datasets, look at:
 
 - it reflects Node heap deltas only;
 - it does not instrument Go or Rust WASM linear memory;
-- it should be treated as an application-level comparison signal, not a full profiler.
+- it does not include allocator internals, OS page cache effects, or whole-process RSS;
+- it should be treated as an application-level comparison signal, not a full profiler or capacity limit.
 
 The benchmark response makes this explicit in `diagnostics.memory`.
 
@@ -117,6 +190,56 @@ The helper script fails if:
 - the payload is missing `exceljs`, `goWasm`, or `rustWasm`;
 - row counts do not match across variants.
 
+To collect a publishable normalized artifact with the fixed profile:
+
+```bash
+npm run benchmark:collect -- \
+  --profile benchmarks/profiles/continuous-default.json \
+  --output .tmp/benchmark-run.json
+```
+
+By default the collector starts the app itself, waits for:
+
+- `GET /export/exceljs/health`
+- `GET /export/wasm/status`
+- `GET /export/rust-wasm/status`
+
+Then it executes the profile's warmup/sample policy, validates the normalized JSON against
+`benchmarks/schema/benchmark-run.schema.json`, and stores the artifact at the requested output
+path. If you already have the app running, add `--reuse-server`.
+
+Use this collector path for publishable benchmark input. For a smoke test, keep using
+`bun run test:comparison`; that helper is intentionally lighter-weight and does not produce a
+normalized run document, update history indexes, or build the static site.
+
+## 5a. Rebuild history and site artifacts
+
+After benchmark run documents are already stored under your data directory, rebuild derived outputs
+with:
+
+```bash
+npm run benchmark:history -- --data-dir .tmp/benchmarks/data
+npm run benchmark:site -- --data-dir .tmp/benchmarks/data --out-dir .tmp/benchmarks/site
+npm run benchmark:validate -- --data-dir .tmp/benchmarks/data --site-dir .tmp/benchmarks/site
+```
+
+To import a recorded lane run before rebuilding history:
+
+```bash
+npm run benchmark:import-recorded -- --input .tmp/recorded-run.json --data-dir .tmp/benchmarks/data
+```
+
+To collect and store a fresh continuous run into the data directory in one local step, use:
+
+```bash
+npm run benchmark:pages -- \
+  --collect \
+  --profile benchmarks/profiles/continuous-default.json \
+  --benchmark-output .tmp/benchmark-run.json \
+  --data-dir .tmp/benchmarks/data \
+  --site-dir .tmp/benchmarks/site
+```
+
 ## 6. Call the benchmark route directly
 
 ```bash
@@ -171,6 +294,35 @@ Diagnostics keys:
 
 - `diagnostics.memory`
 - `diagnostics.executionModel`
+
+## 7a. Normalized run artifact shape
+
+The collector output is intentionally different from the raw controller payload.
+
+Top-level keys:
+
+- `schemaVersion`
+- `lane`
+- `collectedAt`
+- `profile`
+- `source`
+- `git`
+- `runner`
+- `toolchain`
+- `scenario`
+- `samples`
+
+Each sample stores:
+
+- `sampleIndex`
+- `collectedAt`
+- `request`
+- `implementations[]`
+- `comparisons[]`
+- `diagnostics`
+
+This keeps history storage and future site generation tied to one stable schema rather than the
+current raw HTTP response shape.
 
 ## 8. How to read the execution model
 

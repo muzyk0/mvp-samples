@@ -1,0 +1,128 @@
+name: Benchmark Pages
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      collect_continuous_run:
+        description: Collect a fresh continuous benchmark run before publishing
+        required: false
+        default: false
+        type: boolean
+      recorded_run_path:
+        description: Optional repo-relative normalized recorded run JSON to import
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: benchmark-pages-master
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    env:
+      NODE_VERSION: '22.14.0'
+      BUN_VERSION: '1.3.10'
+      GO_VERSION: '1.25.5'
+      RUST_VERSION: '1.90.0'
+      PUBLISHED_SITE_DIR: .tmp/gh-pages
+      DATA_DIR: .tmp/benchmark-pages/data
+      SITE_DIR: .tmp/benchmark-pages/site
+      BENCHMARK_OUTPUT: .tmp/benchmark-pages/continuous-run.json
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.10'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.90.0'
+          targets: wasm32-unknown-unknown
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bun run prisma:generate
+
+      - name: Migrate SQLite schema
+        run: bun run prisma:migrate
+
+      - name: Seed SQLite benchmark dataset
+        run: bun run prisma:seed
+
+      - name: Build Go WASM bridge
+        run: bun run build:wasm
+
+      - name: Build Rust WASM bridge
+        run: bun run build:rust-wasm
+
+      - name: Build Nest app
+        run: bun run build
+
+      - name: Restore previously published benchmark data
+        run: |
+          rm -rf "$PUBLISHED_SITE_DIR"
+          mkdir -p "$PUBLISHED_SITE_DIR"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages --depth=1
+            git worktree add "$PUBLISHED_SITE_DIR" origin/gh-pages
+          fi
+
+      - name: Publish benchmark site payload
+        run: |
+          args=(
+            --data-dir "$DATA_DIR"
+            --site-dir "$SITE_DIR"
+            --published-site-dir "$PUBLISHED_SITE_DIR"
+            --profile benchmarks/profiles/continuous-default.json
+            --benchmark-output "$BENCHMARK_OUTPUT"
+          )
+          if [[ "${{ github.event_name }}" != "workflow_dispatch" || "${{ inputs.collect_continuous_run }}" == "true" ]]; then
+            args+=(--collect)
+          fi
+          if [[ -n "${{ inputs.recorded_run_path }}" ]]; then
+            args+=(--recorded-run "${{ inputs.recorded_run_path }}")
+          fi
+          bun run benchmark:pages -- "${args[@]}"
+
+      - name: Validate benchmark site payload
+        run: |
+          bun run benchmark:validate -- \
+            --data-dir "$DATA_DIR" \
+            --site-dir "$SITE_DIR"
+
+      - name: Deploy benchmark site to GitHub Pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: .tmp/benchmark-pages/site
+          force_orphan: false
+          enable_jekyll: false

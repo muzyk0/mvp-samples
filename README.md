@@ -104,9 +104,78 @@ bun run test:comparison
 bun run test:rust-wasm
 ```
 
+## Benchmark collection contract
+
+Continuous benchmark collection now uses a pinned profile file:
+
+- `benchmarks/profiles/continuous-default.json`
+
+That profile fixes the benchmark lane, environment label, request payload, warmup/sample counts,
+health checks, and output contract. The collector keeps using `POST /export/benchmark`, so every
+runtime still measures the same SQLite/Prisma-backed dataset path.
+
+The collector script:
+
+1. starts the app with the profile's `startCommand`;
+2. waits for the configured exporter health/status routes to pass;
+3. runs warmup requests that are not stored;
+4. runs measured samples against `POST /export/benchmark`;
+5. normalizes the HTTP payload into a generic implementation list;
+6. validates the normalized run against `benchmarks/schema/benchmark-run.schema.json`;
+7. writes one JSON artifact without mixing in site generation.
+
+Example:
+
+```bash
+bun run build:wasm
+bun run build:rust-wasm
+bun run build
+npm run benchmark:collect -- --profile benchmarks/profiles/continuous-default.json --output .tmp/benchmark-run.json
+```
+
+## Benchmark publishing pipeline
+
+The benchmark publication flow is intentionally split into separate stages:
+
+1. collect one normalized raw run document from `POST /export/benchmark`
+2. store/import immutable raw JSON under `benchmarks/data/runs/...`
+3. rebuild history indexes under `benchmarks/data/indexes/...`
+4. generate a static site from stored indexes only
+5. validate the stored data and generated site before publication
+
+The automated publication path is GitHub Pages only. The dedicated benchmark workflow runs on
+pushes to `master`, on a weekly schedule, or by manual dispatch, then publishes the generated static
+site to `gh-pages`. Automatic runs refresh only the continuous lane. Recorded runs are imported
+separately so stronger-hardware measurements do not get overwritten by GitHub-hosted runner noise.
+
+The project keeps two histories separate on purpose:
+
+- continuous GitHub-hosted runner history
+- recorded dedicated-hardware history
+
+That separation is carried in the lane plus environment label, so trend views do not silently mix
+GitHub runner noise with manually collected workstation runs.
+
+Developer commands:
+
+```bash
+npm run benchmark:collect -- --profile benchmarks/profiles/continuous-default.json --output .tmp/benchmark-run.json
+npm run benchmark:import-recorded -- --input .tmp/recorded-run.json --data-dir .tmp/benchmarks/data
+npm run benchmark:history -- --data-dir .tmp/benchmarks/data
+npm run benchmark:site -- --data-dir .tmp/benchmarks/data --out-dir .tmp/benchmarks/site
+npm run benchmark:validate -- --data-dir .tmp/benchmarks/data --site-dir .tmp/benchmarks/site
+npm run benchmark:pages -- --collect
+```
+
+Typical flows:
+
+- refresh the continuous GitHub Pages dataset from the pinned profile: `npm run benchmark:pages -- --collect`
+- import a recorded run collected on another machine, then rebuild indexes/site: `npm run benchmark:import-recorded -- --input .tmp/recorded-run.json --data-dir .tmp/benchmarks/data`
+
 ## Docs
 
 - `docs/benchmarking.md`
+- `docs/benchmark-pages.md`
 - `docs/benchmark-results-streaming.md`
 - `docs/rust-wasm-notes.md`
 - `docs/plans/completed/issue-7-rust-wasm-export-plan.md`
