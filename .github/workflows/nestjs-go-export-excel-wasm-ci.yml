@@ -156,6 +156,9 @@ jobs:
       - name: Generate Prisma client
         run: bun run prisma:generate
 
+      - name: Build Nest app
+        run: bun run build
+
       - name: Run e2e tests
         run: bun run test:e2e
 
