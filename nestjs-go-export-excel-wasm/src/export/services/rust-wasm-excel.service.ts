@@ -185,7 +185,7 @@ export class RustWasmExcelService
 
     for await (const batch of rows) {
       for (const row of batch) {
-        if (payload.rows.length >= DEFAULT_EXPORT_LIMIT) {
+        if (payload.rows.length + 1 > DEFAULT_EXPORT_LIMIT) {
           throw new ServiceUnavailableException(
             `Rust WASM export supports at most ${DEFAULT_EXPORT_LIMIT} rows per request`,
           );
