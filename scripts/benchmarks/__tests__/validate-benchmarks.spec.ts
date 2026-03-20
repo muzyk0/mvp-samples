@@ -273,16 +273,23 @@ describe('validate-benchmarks', () => {
     });
     expect(readme).toContain('continuous GitHub-hosted runner history');
     expect(readme).toContain('recorded dedicated-hardware history');
+    expect(readme).toContain('pushes to `master`');
+    expect(readme).toContain('publishes the generated static');
     expect(benchmarkingDoc).toContain(
       'collection, history/index generation, site generation',
     );
+    expect(benchmarkingDoc).toContain('smoke testing');
     expect(benchmarkingDoc).toContain('continuous lane');
     expect(benchmarkingDoc).toContain('recorded lane');
+    expect(benchmarkingDoc).toContain('full profiler or capacity limit');
     expect(benchmarkPagesDoc).toContain('npm run benchmark:collect --');
     expect(benchmarkPagesDoc).toContain('npm run benchmark:import-recorded --');
     expect(benchmarkPagesDoc).toContain('npm run benchmark:history --');
     expect(benchmarkPagesDoc).toContain('npm run benchmark:site --');
     expect(benchmarkPagesDoc).toContain('npm run benchmark:validate --');
+    expect(benchmarkPagesDoc).toContain('push to `master`');
+    expect(benchmarkPagesDoc).toContain('smoke test only');
     expect(benchmarkPagesDoc).toContain('future exporter');
+    expect(benchmarkPagesDoc).toContain('hardware-absolute performance claims');
   });
 });

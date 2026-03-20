@@ -181,7 +181,7 @@ Add a benchmark publishing pipeline that runs the existing three-exporter compar
 - Modify: `docs/benchmark-pages.md`
 - Modify: `AGENTS.md` if benchmark workflow conventions become repository policy
 
-- [ ] update README with the benchmark publishing architecture, automatic `master` refresh behavior, and recorded-run import flow
-- [ ] update benchmark docs to distinguish smoke testing, continuous CI benchmarks, and recorded dedicated-hardware benchmarks
-- [ ] document benchmark limitations clearly, especially runner variance and the scope of `memoryDeltaBytes`
-- [ ] move this plan to `docs/plans/completed/`
+- [x] update README with the benchmark publishing architecture, automatic `master` refresh behavior, and recorded-run import flow
+- [x] update benchmark docs to distinguish smoke testing, continuous CI benchmarks, and recorded dedicated-hardware benchmarks
+- [x] document benchmark limitations clearly, especially runner variance and the scope of `memoryDeltaBytes`
+- [x] move this plan to `docs/plans/completed/`

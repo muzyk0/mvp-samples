@@ -85,7 +85,10 @@ describe('site-data-builder', () => {
 
   it('accepts a future implementation id without requiring structural site changes', async () => {
     const dataDir = await createFixtureCopy();
-    const implementationsPath = resolve(dataDir, 'indexes/implementations.json');
+    const implementationsPath = resolve(
+      dataDir,
+      'indexes/implementations.json',
+    );
     const runSummariesPath = resolve(dataDir, 'indexes/run-summaries.json');
     const scenarioTrendsPath = resolve(dataDir, 'indexes/scenario-trends.json');
 
@@ -104,7 +107,10 @@ describe('site-data-builder', () => {
       firstSeenAt: '2026-03-20T10:00:00.000Z',
       latestSeenAt: '2026-03-20T10:00:00.000Z',
     };
-    await writeFile(implementationsPath, `${JSON.stringify(implementations)}\n`);
+    await writeFile(
+      implementationsPath,
+      `${JSON.stringify(implementations)}\n`,
+    );
 
     const runSummaries = JSON.parse(
       await readFile(runSummariesPath, 'utf8'),
@@ -153,20 +159,24 @@ describe('site-data-builder', () => {
 
     const siteData = await buildBenchmarkSiteData(dataDir);
 
-    expect(siteData.implementations.map((implementation) => implementation.id)).toContain(
-      'pythonWasm',
-    );
+    expect(
+      siteData.implementations.map((implementation) => implementation.id),
+    ).toContain('pythonWasm');
     const continuousLatestView = siteData.latestViews.find(
       (view) => view.lane === 'continuous',
     );
     expect(
-      continuousLatestView?.implementations.map((implementation) => implementation.id),
+      continuousLatestView?.implementations.map(
+        (implementation) => implementation.id,
+      ),
     ).toContain('pythonWasm');
     const continuousTrendView = siteData.trendViews.find(
       (view) => view.lane === 'continuous',
     );
     expect(
-      continuousTrendView?.implementations.map((implementation) => implementation.id),
+      continuousTrendView?.implementations.map(
+        (implementation) => implementation.id,
+      ),
     ).toContain('pythonWasm');
   });
 });

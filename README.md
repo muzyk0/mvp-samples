@@ -143,6 +143,11 @@ The benchmark publication flow is intentionally split into separate stages:
 4. generate a static site from stored indexes only
 5. validate the stored data and generated site before publication
 
+The automated publication path is GitHub Pages only. The dedicated benchmark workflow runs on
+pushes to `master`, on a weekly schedule, or by manual dispatch, then publishes the generated static
+site to `gh-pages`. Automatic runs refresh only the continuous lane. Recorded runs are imported
+separately so stronger-hardware measurements do not get overwritten by GitHub-hosted runner noise.
+
 The project keeps two histories separate on purpose:
 
 - continuous GitHub-hosted runner history
@@ -161,6 +166,11 @@ npm run benchmark:site -- --data-dir .tmp/benchmarks/data --out-dir .tmp/benchma
 npm run benchmark:validate -- --data-dir .tmp/benchmarks/data --site-dir .tmp/benchmarks/site
 npm run benchmark:pages -- --collect
 ```
+
+Typical flows:
+
+- refresh the continuous GitHub Pages dataset from the pinned profile: `npm run benchmark:pages -- --collect`
+- import a recorded run collected on another machine, then rebuild indexes/site: `npm run benchmark:import-recorded -- --input .tmp/recorded-run.json --data-dir .tmp/benchmarks/data`
 
 ## Docs
 

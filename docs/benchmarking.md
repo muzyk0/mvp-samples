@@ -11,6 +11,12 @@ The benchmark compares:
 
 All three variants use the same SQLite/Prisma-backed dataset plan.
 
+Treat these benchmark modes as different jobs:
+
+- smoke testing: quick local confidence checks such as `bun run test:comparison` against a running app
+- continuous benchmark publication: pinned GitHub-hosted runner collection that updates the Pages site from `master`
+- recorded benchmark publication: normalized JSON imported from stronger or more stable hardware without rerunning in GitHub Actions
+
 ## Benchmark pipeline boundaries
 
 Keep these steps distinct:
@@ -28,6 +34,10 @@ Two lanes are supported and should be interpreted separately:
 - recorded lane: imported stronger-hardware runs that should remain separate unless explicitly modeled as the same environment
 
 Both lane and `runner.environmentLabel` are part of the storage and trend identity.
+
+Continuous publication should be treated as a reproducible baseline, not as the highest-quality
+performance number available. Recorded runs exist specifically so you can preserve measurements from
+hardware that is faster or less noisy than the shared GitHub runner pool.
 
 ## Reproducible collector contract
 
@@ -89,7 +99,8 @@ For medium and large datasets, look at:
 
 - it reflects Node heap deltas only;
 - it does not instrument Go or Rust WASM linear memory;
-- it should be treated as an application-level comparison signal, not a full profiler.
+- it does not include allocator internals, OS page cache effects, or whole-process RSS;
+- it should be treated as an application-level comparison signal, not a full profiler or capacity limit.
 
 The benchmark response makes this explicit in `diagnostics.memory`.
 
@@ -196,6 +207,10 @@ By default the collector starts the app itself, waits for:
 Then it executes the profile's warmup/sample policy, validates the normalized JSON against
 `benchmarks/schema/benchmark-run.schema.json`, and stores the artifact at the requested output
 path. If you already have the app running, add `--reuse-server`.
+
+Use this collector path for publishable benchmark input. For a smoke test, keep using
+`bun run test:comparison`; that helper is intentionally lighter-weight and does not produce a
+normalized run document, update history indexes, or build the static site.
 
 ## 5a. Rebuild history and site artifacts
 

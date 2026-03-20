@@ -38,6 +38,13 @@ Collection, storage, site generation, and publication are separate steps on purp
 
 - command: `npm run benchmark:pages -- --collect --published-site-dir .tmp/published-site --site-dir .tmp/benchmarks/site --data-dir .tmp/benchmarks/data`
 - optionally seeds previous published data, collects the continuous run, imports recorded runs, rebuilds history, generates the site, and stages data for publishing
+- the GitHub Actions workflow runs this on push to `master`, on a weekly schedule, or by manual dispatch, then deploys the generated static files to `gh-pages`
+
+## When to use which command
+
+- smoke test only: `bun run test:comparison` against a running app to confirm the live benchmark route still responds
+- continuous Pages refresh: `npm run benchmark:pages -- --collect ...` to collect the pinned profile and publish the continuous lane
+- recorded import: `npm run benchmark:import-recorded -- ...` followed by history/site/validate when results came from another machine
 
 ## Benchmark lanes
 
@@ -72,6 +79,12 @@ A future exporter should be added by extending normalized run documents with a n
 label, source key, variant, metrics, and execution metadata. The site reads generic implementation
 lists from normalized data and indexes, so a future exporter should not require structural HTML
 changes as long as the schema and indexes remain consistent.
+
+## Limitations
+
+- continuous lane results inherit GitHub-hosted runner variance and should be interpreted as trend signals, not hardware-absolute performance claims
+- `memoryDeltaBytes` reports Node heap deltas only and excludes Go/Rust WASM linear memory, allocator internals, and full-process RSS
+- recorded runs are only comparable to each other when the environment label and collection policy intentionally match
 
 ## Local workflow
 

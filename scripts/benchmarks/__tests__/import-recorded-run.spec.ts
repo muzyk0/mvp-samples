@@ -156,7 +156,9 @@ describe('import-recorded-run', () => {
       }
     >;
     expect(
-      scenarioTrends['recorded::dedicated-linux-workstation::default-benchmark'],
+      scenarioTrends[
+        'recorded::dedicated-linux-workstation::default-benchmark'
+      ],
     ).toMatchObject({
       lane: 'recorded',
       environment: 'dedicated-linux-workstation',

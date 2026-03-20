@@ -131,6 +131,12 @@ finalization."
 If you need current numbers, rerun the benchmark with the live three-variant payload and record the
 results under the current key names: `exceljs`, `goWasm`, and `rustWasm`.
 
+Use the benchmark commands according to intent:
+
+- smoke test the current app route with `bun run test:comparison`
+- refresh the continuous published lane with `npm run benchmark:pages -- --collect`
+- import a dedicated-hardware run with `npm run benchmark:import-recorded -- --input ...`
+
 When publishing fresh numbers, keep the benchmark lane explicit:
 
 - continuous for GitHub-hosted runner history
