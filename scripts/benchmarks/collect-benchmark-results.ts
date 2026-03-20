@@ -46,8 +46,9 @@ function parseCliArgs(argv: string[]): CollectorCliOptions {
   return { profilePath, outputPath, reuseServer };
 }
 
-async function main(): Promise<void> {
-  const options = parseCliArgs(process.argv.slice(2));
+export async function collectBenchmarkResults(
+  options: CollectorCliOptions,
+): Promise<ReturnType<typeof normalizeBenchmarkRun>> {
   const resolvedProfilePath = resolve(options.profilePath);
   const resolvedOutputPath = resolve(options.outputPath);
   const collectedAt = new Date().toISOString();
@@ -78,10 +79,18 @@ async function main(): Promise<void> {
   process.stdout.write(
     `Stored normalized benchmark run at ${resolvedOutputPath} from POST /export/benchmark\n`,
   );
+  return runDocument;
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
-  process.exit(1);
-});
+async function main(): Promise<void> {
+  const options = parseCliArgs(process.argv.slice(2));
+  await collectBenchmarkResults(options);
+}
+
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  });
+}

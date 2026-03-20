@@ -119,14 +119,14 @@ Add a benchmark publishing pipeline that runs the existing three-exporter compar
 - Create: `scripts/benchmarks/publish-pages.ts`
 - Create: `scripts/benchmarks/__tests__/publish-pages.spec.ts`
 
-- [ ] add a dedicated benchmark workflow with `push` on `master`, `workflow_dispatch`, and a scheduled trigger; do not fold full benchmark publication into PR validation
-- [ ] pin the runner image and tool versions used for continuous benchmark collection so the automatic lane stays as stable and reproducible as GitHub-hosted infrastructure allows
-- [ ] serialize benchmark publication with a concurrency group so overlapping runs cannot corrupt history/index updates
-- [ ] make workflow steps run the benchmark path end to end: install dependencies, generate Prisma client, migrate and seed SQLite, build Go WASM, build Rust WASM, build Nest, collect benchmark JSON, update history, build the static site, and deploy the Pages artifact
-- [ ] publish only continuous benchmark results automatically from `master`; allow manual workflow dispatch to rebuild the site and optionally import recorded data without forcing a fresh benchmark run
-- [ ] keep benchmark publication independent from normal CI pass/fail so performance-runner variance does not block standard code validation
-- [ ] write tests or validations for required workflow assumptions, directory contracts, and publish-script orchestration
-- [ ] run task-level validation before task 5
+- [x] add a dedicated benchmark workflow with `push` on `master`, `workflow_dispatch`, and a scheduled trigger; do not fold full benchmark publication into PR validation
+- [x] pin the runner image and tool versions used for continuous benchmark collection so the automatic lane stays as stable and reproducible as GitHub-hosted infrastructure allows
+- [x] serialize benchmark publication with a concurrency group so overlapping runs cannot corrupt history/index updates
+- [x] make workflow steps run the benchmark path end to end: install dependencies, generate Prisma client, migrate and seed SQLite, build Go WASM, build Rust WASM, build Nest, collect benchmark JSON, update history, build the static site, and deploy the Pages artifact
+- [x] publish only continuous benchmark results automatically from `master`; allow manual workflow dispatch to rebuild the site and optionally import recorded data without forcing a fresh benchmark run
+- [x] keep benchmark publication independent from normal CI pass/fail so performance-runner variance does not block standard code validation
+- [x] write tests or validations for required workflow assumptions, directory contracts, and publish-script orchestration
+- [x] run task-level validation before task 5
 
 ### Task 5: Add developer scripts, validation commands, and documentation
 
