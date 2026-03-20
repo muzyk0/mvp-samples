@@ -179,4 +179,74 @@ describe('site-data-builder', () => {
       ),
     ).toContain('pythonWasm');
   });
+
+  it('keeps separate latest views when multiple scenarios share a lane and environment', async () => {
+    const dataDir = await createFixtureCopy();
+    const runSummariesPath = resolve(dataDir, 'indexes/run-summaries.json');
+    const scenarioTrendsPath = resolve(dataDir, 'indexes/scenario-trends.json');
+
+    const alternateRunPath =
+      'runs/continuous/github-hosted-linux-x64/2026/03/2026-03-21T09-00-00-000Z-ccccccc.json';
+    const runSummaries = JSON.parse(
+      await readFile(runSummariesPath, 'utf8'),
+    ) as Record<string, Record<string, unknown>>;
+    runSummaries[alternateRunPath] = {
+      ...runSummaries[
+        'runs/continuous/github-hosted-linux-x64/2026/03/2026-03-20T09-00-00-000Z-aaaaaaa.json'
+      ],
+      runPath: alternateRunPath,
+      collectedAt: '2026-03-21T09:00:00.000Z',
+      scenario: {
+        id: 'wide-benchmark',
+        label: 'Wide benchmark',
+        sampleCount: 1,
+        warmupCount: 1,
+        request: {
+          limit: 2000,
+          seed: 12345,
+          columns: ['id', 'fullName', 'department', 'salary'],
+          fileName: 'benchmark.xlsx',
+          includeMemory: true,
+        },
+      },
+    };
+    await writeFile(runSummariesPath, `${JSON.stringify(runSummaries)}\n`);
+
+    const scenarioTrends = JSON.parse(
+      await readFile(scenarioTrendsPath, 'utf8'),
+    ) as Record<string, Record<string, unknown>>;
+    scenarioTrends['continuous::github-hosted-linux-x64::wide-benchmark'] = {
+      lane: 'continuous',
+      environment: 'github-hosted-linux-x64',
+      scenarioId: 'wide-benchmark',
+      scenarioLabel: 'Wide benchmark',
+      latestRunPath: alternateRunPath,
+      points: [
+        {
+          implementationId: 'exceljs',
+          label: 'ExcelJS',
+          collectedAt: '2026-03-21T09:00:00.000Z',
+          runPath: alternateRunPath,
+          commitSha: 'cccccccccccccccccccccccccccccccccccccccc',
+          shortSha: 'ccccccc',
+          durationMs: 102,
+          sizeBytes: 210000,
+        },
+      ],
+    };
+    await writeFile(scenarioTrendsPath, `${JSON.stringify(scenarioTrends)}\n`);
+
+    const siteData = await buildBenchmarkSiteData(dataDir);
+
+    expect(
+      siteData.latestViews.filter(
+        (view) =>
+          view.lane === 'continuous' &&
+          view.environment === 'github-hosted-linux-x64',
+      ),
+    ).toHaveLength(2);
+    expect(siteData.latestViews.map((view) => view.scenarioId)).toContain(
+      'wide-benchmark',
+    );
+  });
 });

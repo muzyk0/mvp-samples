@@ -112,6 +112,12 @@ jobs:
           fi
           bun run benchmark:pages -- "${args[@]}"
 
+      - name: Validate benchmark site payload
+        run: |
+          bun run benchmark:validate -- \
+            --data-dir "$DATA_DIR" \
+            --site-dir "$SITE_DIR"
+
       - name: Deploy benchmark site to GitHub Pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:

@@ -105,10 +105,6 @@ npm run benchmark:pages -- \
 If raw runs are already stored or imported under `.tmp/benchmarks/data`, rebuild and preview with:
 
 ```bash
-npm run benchmark:collect -- \
-  --profile benchmarks/profiles/continuous-default.json \
-  --output .tmp/benchmark-run.json
-
 npm run benchmark:history -- --data-dir .tmp/benchmarks/data
 
 npm run benchmark:site -- \

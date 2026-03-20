@@ -289,7 +289,11 @@ describe('validate-benchmarks', () => {
     expect(benchmarkPagesDoc).toContain('npm run benchmark:validate --');
     expect(benchmarkPagesDoc).toContain('push to `master`');
     expect(benchmarkPagesDoc).toContain('smoke test only');
+    expect(benchmarkPagesDoc).toContain('standalone normalized artifact');
     expect(benchmarkPagesDoc).toContain('future exporter');
     expect(benchmarkPagesDoc).toContain('hardware-absolute performance claims');
+    expect(benchmarkPagesDoc).not.toMatch(
+      /If raw runs are already stored or imported[\s\S]*npm run benchmark:collect --[\s\S]*python3 -m http\.server/,
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import Ajv2020 from 'ajv/dist/2020';
+import addFormats from 'ajv-formats';
 import type { BenchmarkLane, BenchmarkProfile } from './benchmark-config';
 import type {
   ExportBenchmarkDiagnostics,
@@ -18,6 +19,9 @@ const IMPLEMENTATION_MAP = [
   { id: 'goWasm', label: 'Go/WASM', sourceKey: 'goWasm' as const },
   { id: 'rustWasm', label: 'Rust/WASM', sourceKey: 'rustWasm' as const },
 ] as const;
+let benchmarkRunValidatorPromise:
+  | Promise<ReturnType<Ajv2020['compile']>>
+  | undefined;
 
 export interface NormalizedComparison {
   id: string;
@@ -216,16 +220,29 @@ export async function loadBenchmarkRunSchema(): Promise<object> {
   return JSON.parse(rawSchema) as object;
 }
 
+async function getBenchmarkRunValidator(): Promise<
+  ReturnType<Ajv2020['compile']>
+> {
+  if (!benchmarkRunValidatorPromise) {
+    benchmarkRunValidatorPromise = (async () => {
+      const ajv = new Ajv2020({
+        allErrors: true,
+        strict: false,
+        allowUnionTypes: true,
+      });
+      addFormats(ajv);
+      const schema = await loadBenchmarkRunSchema();
+      return ajv.compile(schema);
+    })();
+  }
+
+  return benchmarkRunValidatorPromise;
+}
+
 export async function validateNormalizedBenchmarkRun(
   runDocument: NormalizedBenchmarkRun,
 ): Promise<void> {
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strict: false,
-    allowUnionTypes: true,
-  });
-  const schema = await loadBenchmarkRunSchema();
-  const validate = ajv.compile(schema);
+  const validate = await getBenchmarkRunValidator();
   const isValid = validate(runDocument);
 
   if (!isValid) {

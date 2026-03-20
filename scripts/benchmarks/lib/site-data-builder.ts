@@ -161,18 +161,13 @@ function mapImplementationCatalog(
 }
 
 function buildLatestViews(indexes: SiteIndexes): SiteCurrentView[] {
-  const latestViews: SiteCurrentView[] = [];
-
-  for (const [lane, environments] of Object.entries(
-    indexes.latestRuns,
-  ).sort()) {
-    for (const [environment, latestRunPath] of Object.entries(
-      environments,
-    ).sort()) {
-      const runSummary = indexes.runSummaries[latestRunPath];
+  return Object.entries(indexes.scenarios)
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .map(([scenarioKey, scenario]) => {
+      const runSummary = indexes.runSummaries[scenario.latestRunPath];
       if (!runSummary) {
         throw new Error(
-          `Missing run summary for latest run "${latestRunPath}"`,
+          `Missing run summary for latest scenario run "${scenario.latestRunPath}"`,
         );
       }
 
@@ -183,13 +178,13 @@ function buildLatestViews(indexes: SiteIndexes): SiteCurrentView[] {
       );
       const fastestDurationMs = implementations[0]?.avgDurationMs ?? 0;
 
-      latestViews.push({
-        id: `${lane}::${environment}::${runSummary.scenario.id}`,
-        lane,
-        environment,
-        scenarioId: runSummary.scenario.id,
-        scenarioLabel: runSummary.scenario.label,
-        latestRunPath,
+      return {
+        id: scenarioKey,
+        lane: scenario.lane,
+        environment: scenario.environment,
+        scenarioId: scenario.scenarioId,
+        scenarioLabel: scenario.scenarioLabel,
+        latestRunPath: scenario.latestRunPath,
         collectedAt: runSummary.collectedAt,
         git: runSummary.git,
         profile: runSummary.profile,
@@ -203,16 +198,14 @@ function buildLatestViews(indexes: SiteIndexes): SiteCurrentView[] {
             (implementation.avgDurationMs - fastestDurationMs).toFixed(3),
           ),
         })),
-      });
-    }
-  }
-
-  return latestViews.sort(
-    (left, right) =>
-      left.lane.localeCompare(right.lane) ||
-      left.environment.localeCompare(right.environment) ||
-      left.scenarioId.localeCompare(right.scenarioId),
-  );
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.lane.localeCompare(right.lane) ||
+        left.environment.localeCompare(right.environment) ||
+        left.scenarioId.localeCompare(right.scenarioId),
+    );
 }
 
 function aggregateScenarioImplementationPoints(

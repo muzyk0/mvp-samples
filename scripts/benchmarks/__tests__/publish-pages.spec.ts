@@ -240,6 +240,7 @@ describe('publish-pages', () => {
     expect(workflow).toContain('bun run build:rust-wasm');
     expect(workflow).toContain('bun run build');
     expect(workflow).toContain('bun run benchmark:pages --');
+    expect(workflow).toContain('bun run benchmark:validate --');
     expect(workflow).toContain('publish_branch: gh-pages');
   });
 });
