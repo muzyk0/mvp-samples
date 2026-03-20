@@ -7,6 +7,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { existsSync } from 'fs';
+import { DEFAULT_EXPORT_LIMIT } from '../dto/export-request.dto';
 import { join } from 'path';
 import { PassThrough, Readable, Writable } from 'stream';
 import { finished, pipeline } from 'stream/promises';
@@ -176,8 +177,20 @@ export class RustWasmExcelService
       ...(sheetName ? { sheet_name: sheetName } : {}),
     };
 
+    if (columns.length > DEFAULT_EXPORT_LIMIT) {
+      throw new ServiceUnavailableException(
+        `Rust WASM export supports at most ${DEFAULT_EXPORT_LIMIT} columns per request`,
+      );
+    }
+
     for await (const batch of rows) {
       for (const row of batch) {
+        if (payload.rows.length >= DEFAULT_EXPORT_LIMIT) {
+          throw new ServiceUnavailableException(
+            `Rust WASM export supports at most ${DEFAULT_EXPORT_LIMIT} rows per request`,
+          );
+        }
+
         payload.rows.push(
           columns.map((column) => this.normalizeCellValue(row[column])),
         );
@@ -224,7 +237,7 @@ export class RustWasmExcelService
   private loadRustModule(): Promise<RustWasmModule> {
     if (!existsSync(this.rustModulePath) || !existsSync(this.rustBinaryPath)) {
       throw new ServiceUnavailableException(
-        `Rust WASM assets are not available yet. Expected files in ${this.rustAssetsDir}. Run "bun run build:rust-wasm".`,
+        `Rust WASM assets are not available yet. Expected files in ${this.rustAssetsDir}. Run "npm run build:rust-wasm" or "bun run build:rust-wasm".`,
       );
     }
 

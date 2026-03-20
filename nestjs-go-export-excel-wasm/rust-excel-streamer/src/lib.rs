@@ -1,4 +1,4 @@
-use std::io::Cursor;
+use std::{convert::TryFrom, io::Cursor};
 
 use rust_xlsxwriter::{Format, Workbook, Worksheet, XlsxError};
 use serde::Deserialize;
@@ -63,7 +63,8 @@ fn build_workbook(payload: WorkbookPayload) -> Result<Vec<u8>, XlsxError> {
 
 fn write_headers(worksheet: &mut Worksheet, columns: &[String]) -> Result<(), XlsxError> {
     for (column_index, column_name) in columns.iter().enumerate() {
-        worksheet.write_string(0, column_index as u16, column_name)?;
+        let worksheet_column = to_worksheet_column(column_index)?;
+        worksheet.write_string(0, worksheet_column, column_name)?;
     }
 
     Ok(())
@@ -78,8 +79,9 @@ fn write_rows(
         let worksheet_row = (row_index + 1) as u32;
 
         for (column_index, _) in columns.iter().enumerate() {
+            let worksheet_column = to_worksheet_column(column_index)?;
             let cell_value = row.get(column_index).unwrap_or(&JsonValue::Null);
-            write_cell(worksheet, worksheet_row, column_index as u16, cell_value)?;
+            write_cell(worksheet, worksheet_row, worksheet_column, cell_value)?;
         }
     }
 
@@ -115,6 +117,11 @@ fn write_cell(
     }
 
     Ok(())
+}
+
+fn to_worksheet_column(column_index: usize) -> Result<u16, XlsxError> {
+    u16::try_from(column_index)
+        .map_err(|_| XlsxError::ParameterError("column index exceeds u16 range".into()))
 }
 
 fn to_js_error(error: XlsxError) -> JsValue {

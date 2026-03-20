@@ -1,4 +1,7 @@
 import ExcelJS from 'exceljs';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { WasmExcelService } from './wasm-excel.service';
 import { ExportDatasetStreamPlan } from '../interfaces/export-data.interface';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -38,10 +41,9 @@ describe('WasmExcelService', () => {
       })();
 
       if (!status.hasBinary) {
-        await expect(
-          service.exportPlanToBuffer(plan, rows, 'wasm-test.xlsx'),
-        ).rejects.toThrow(/WASM assets are not available yet/);
-        return;
+        throw new Error(
+          'RUN_WASM_INTEGRATION_TESTS=1, but WASM assets are missing. Build the runtime artifacts first.',
+        );
       }
 
       const { result, buffer } = await service.exportPlanToBuffer(
@@ -80,7 +82,9 @@ describe('WasmExcelService', () => {
   });
 
   it('fails explicitly when runtime artifacts are missing', async () => {
-    const missingAssetsDir = '/tmp/go-wasm-missing-assets';
+    const missingAssetsDir = mkdtempSync(
+      join(tmpdir(), 'go-wasm-missing-assets-'),
+    );
     const missingAssetService = new WasmExcelService();
 
     try {
@@ -103,6 +107,7 @@ describe('WasmExcelService', () => {
       ).rejects.toThrow(/WASM assets are not available yet/);
     } finally {
       missingAssetService.onModuleDestroy();
+      rmSync(missingAssetsDir, { recursive: true, force: true });
     }
   });
 });

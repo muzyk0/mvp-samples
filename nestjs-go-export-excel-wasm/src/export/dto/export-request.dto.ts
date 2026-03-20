@@ -63,6 +63,7 @@ export class ExportRequestDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(DEFAULT_EXPORT_LIMIT)
   limit?: number = DEFAULT_EXPORT_LIMIT;
 
   @IsOptional()
