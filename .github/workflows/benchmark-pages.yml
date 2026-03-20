@@ -40,12 +40,12 @@ jobs:
       BENCHMARK_OUTPUT: .tmp/benchmark-pages/continuous-run.json
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22.14.0'
 
@@ -55,9 +55,10 @@ jobs:
           bun-version: '1.3.10'
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.25.5'
+          cache-dependency-path: excel-streamer/go.sum
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -118,11 +119,25 @@ jobs:
             --data-dir "$DATA_DIR" \
             --site-dir "$SITE_DIR"
 
-      - name: Deploy benchmark site to GitHub Pages branch
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: .tmp/benchmark-pages/site
-          force_orphan: false
-          enable_jekyll: false
+      - name: Deploy benchmark site to gh-pages
+        run: |
+          if [ ! -d "$PUBLISHED_SITE_DIR/.git" ]; then
+            git worktree add -B gh-pages "$PUBLISHED_SITE_DIR"
+          fi
+
+          find "$PUBLISHED_SITE_DIR" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R "$SITE_DIR"/. "$PUBLISHED_SITE_DIR"/
+          touch "$PUBLISHED_SITE_DIR/.nojekyll"
+
+          cd "$PUBLISHED_SITE_DIR"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No benchmark site changes to deploy"
+            exit 0
+          fi
+
+          git commit -m "Deploy benchmark site"
+          git push origin HEAD:gh-pages
