@@ -144,6 +144,26 @@ describe('import-recorded-run', () => {
     expect(latestRuns.recorded['dedicated-linux-workstation']).toContain(
       'runs/recorded/dedicated-linux-workstation/2026/03/2026-03-20T12-00-00-000Z-aaaaaaa.json',
     );
+    const scenarioTrends = JSON.parse(
+      await readFile(resolve(dataDir, 'indexes/scenario-trends.json'), 'utf8'),
+    ) as Record<
+      string,
+      {
+        lane: string;
+        environment: string;
+        scenarioId: string;
+        latestRunPath: string;
+      }
+    >;
+    expect(
+      scenarioTrends['recorded::dedicated-linux-workstation::default-benchmark'],
+    ).toMatchObject({
+      lane: 'recorded',
+      environment: 'dedicated-linux-workstation',
+      scenarioId: 'default-benchmark',
+      latestRunPath:
+        'runs/recorded/dedicated-linux-workstation/2026/03/2026-03-20T12-00-00-000Z-aaaaaaa.json',
+    });
   });
 
   it('rejects imports that are not recorded-lane run documents', async () => {

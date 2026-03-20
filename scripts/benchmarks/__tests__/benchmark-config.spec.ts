@@ -27,7 +27,15 @@ describe('benchmark-config', () => {
       fileName: 'benchmark.xlsx',
       includeMemory: true,
     });
-    expect(profile.scenario.request.columns).toHaveLength(7);
+    expect(profile.scenario.request.columns).toEqual([
+      'ID',
+      'Имя',
+      'Отдел',
+      'Должность',
+      'Зарплата (итоговая)',
+      'Дата приема на работу',
+      'Активен',
+    ]);
   });
 
   it('rejects profiles that omit the shared benchmark request contract', async () => {

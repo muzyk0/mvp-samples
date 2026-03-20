@@ -36,13 +36,13 @@
       "includeHeaders": true,
       "includeMemory": true,
       "columns": [
-        "id",
-        "fullName",
-        "department",
-        "position",
-        "salary",
-        "hireDate",
-        "employmentStatus"
+        "ID",
+        "Имя",
+        "Отдел",
+        "Должность",
+        "Зарплата (итоговая)",
+        "Дата приема на работу",
+        "Активен"
       ]
     },
     "output": {

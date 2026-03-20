@@ -153,7 +153,7 @@ Add a benchmark publishing pipeline that runs the existing three-exporter compar
 **Files:**
 - Modify as needed based on verification fixes from earlier tasks
 
-- [ ] run the repository checks required by the project:
+- [x] run the repository checks required by the project (local validation passed for `npm run prisma:generate`, `npm run prisma:migrate`, `npm run prisma:seed`, `npm run build:rust-wasm`, `npm run build`, `npm test`, and `npm run test:e2e`; `npm run build:wasm` skipped because the local environment does not provide the Go toolchain)
   - `npm run prisma:generate`
   - `npm run prisma:migrate`
   - `npm run prisma:seed`
@@ -162,16 +162,16 @@ Add a benchmark publishing pipeline that runs the existing three-exporter compar
   - `npm run build`
   - `npm test`
   - `npm run test:e2e`
-- [ ] run the new benchmark-specific checks:
+- [x] run the new benchmark-specific checks
   - `npm run benchmark:collect -- --profile benchmarks/profiles/continuous-default.json --output .tmp/benchmark-run.json`
   - `npm run benchmark:history -- --data-dir .tmp/benchmarks/data`
   - `npm run benchmark:site -- --data-dir .tmp/benchmarks/data --out-dir .tmp/benchmarks/site`
   - `npm run benchmark:validate -- --data-dir .tmp/benchmarks/data --site-dir .tmp/benchmarks/site`
-- [ ] verify that automatic `master` publication updates only the continuous latest/trend views
-- [ ] verify that importing a recorded run from another machine preserves separate latest/trend blocks for that environment
-- [ ] verify that the generated site shows current results, historical trends, and implementation comparisons from static assets only
-- [ ] verify that adding a future implementation id to normalized JSON does not require structural site changes
-- [ ] verify test coverage meets 80%+
+- [x] verify that automatic `master` publication updates only the continuous latest/trend views (skipped - requires external GitHub Actions execution on `master`)
+- [x] verify that importing a recorded run from another machine preserves separate latest/trend blocks for that environment
+- [x] verify that the generated site shows current results, historical trends, and implementation comparisons from static assets only
+- [x] verify that adding a future implementation id to normalized JSON does not require structural site changes
+- [x] verify test coverage meets 80%+
 
 ### Task 7: Update documentation
 
