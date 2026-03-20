@@ -1,5 +1,5 @@
 import { mkdir, rm, writeFile } from 'fs/promises';
-import { dirname, resolve } from 'path';
+import { dirname, parse, resolve } from 'path';
 import { buildBenchmarkSiteData } from './lib/site-data-builder';
 import { renderBenchmarkSite } from './lib/site-renderer';
 
@@ -15,13 +15,21 @@ function parseCliArgs(argv: string[]): BuildSiteCliOptions {
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--data-dir') {
-      dataDir = argv[index + 1] ?? dataDir;
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('Missing value for --data-dir');
+      }
+      dataDir = value;
       index += 1;
       continue;
     }
 
     if (argument === '--out-dir') {
-      outDir = argv[index + 1] ?? outDir;
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('Missing value for --out-dir');
+      }
+      outDir = value;
       index += 1;
     }
   }
@@ -36,15 +44,20 @@ export async function buildBenchmarkSite(
   dataDir: string,
   outDir: string,
 ): Promise<string[]> {
+  const resolvedOutDir = resolve(outDir);
+  if (resolvedOutDir === parse(resolvedOutDir).root) {
+    throw new Error(`Refusing to remove root directory: ${resolvedOutDir}`);
+  }
+
   const siteData = await buildBenchmarkSiteData(dataDir);
   const renderedFiles = await renderBenchmarkSite(siteData);
 
-  await rm(outDir, { recursive: true, force: true });
-  await mkdir(outDir, { recursive: true });
+  await rm(resolvedOutDir, { recursive: true, force: true });
+  await mkdir(resolvedOutDir, { recursive: true });
 
   await Promise.all(
     renderedFiles.map(async (file) => {
-      const filePath = resolve(outDir, file.path);
+      const filePath = resolve(resolvedOutDir, file.path);
       await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, file.content, 'utf8');
     }),

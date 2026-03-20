@@ -8,7 +8,11 @@ function parseCliArgs(argv: string[]): { dataDir: string } {
 
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === '--data-dir') {
-      dataDir = argv[index + 1] ?? dataDir;
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--data-dir requires a value');
+      }
+      dataDir = value;
       index += 1;
     }
   }

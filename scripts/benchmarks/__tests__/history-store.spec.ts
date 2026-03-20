@@ -251,10 +251,12 @@ describe('history-store', () => {
         },
       },
     });
-    expect(Object.keys(indexes.scenarios)).toEqual([
-      'continuous::github-hosted-linux-x64::default-benchmark',
-      'recorded::dedicated-linux-workstation::default-benchmark',
-    ]);
+    expect(Object.keys(indexes.scenarios).sort()).toEqual(
+      [
+        'continuous::github-hosted-linux-x64::default-benchmark',
+        'recorded::dedicated-linux-workstation::default-benchmark',
+      ].sort(),
+    );
     expect(indexes.implementations.exceljs.variants).toEqual(['exceljs']);
     expect(indexes.implementations.goWasm.executionModels).toEqual([
       'finalizes via callbacks',

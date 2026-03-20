@@ -27,13 +27,21 @@ function parseCliArgs(argv: string[]): CollectorCliOptions {
     const argument = argv[index];
 
     if (argument === '--profile') {
-      profilePath = argv[index + 1] ?? profilePath;
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--profile requires a path argument');
+      }
+      profilePath = value;
       index += 1;
       continue;
     }
 
     if (argument === '--output') {
-      outputPath = argv[index + 1] ?? outputPath;
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--output requires a path argument');
+      }
+      outputPath = value;
       index += 1;
       continue;
     }

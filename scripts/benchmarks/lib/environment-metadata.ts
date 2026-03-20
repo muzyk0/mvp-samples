@@ -3,6 +3,8 @@ import { cpus, hostname, totalmem } from 'os';
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
+const COMMAND_TIMEOUT_MS = 15_000;
+const COMMAND_MAX_BUFFER = 1024 * 1024;
 
 export interface GitMetadata {
   commitSha: string;
@@ -36,6 +38,8 @@ async function runVersionCommand(
   try {
     const { stdout, stderr } = await execFileAsync(command, args, {
       env: process.env,
+      timeout: COMMAND_TIMEOUT_MS,
+      maxBuffer: COMMAND_MAX_BUFFER,
     });
     const output = `${stdout}${stderr}`.trim();
     return output.length > 0 ? output.split('\n')[0].trim() : 'unavailable';
@@ -47,6 +51,8 @@ async function runVersionCommand(
 async function runGitCommand(args: string[]): Promise<string> {
   const { stdout } = await execFileAsync('git', args, {
     env: process.env,
+    timeout: COMMAND_TIMEOUT_MS,
+    maxBuffer: COMMAND_MAX_BUFFER,
   });
   return stdout.trim();
 }
@@ -58,12 +64,15 @@ export async function collectGitMetadata(): Promise<GitMetadata> {
 
   let isDirty = false;
   try {
-    await execFileAsync('git', [
-      'diff',
-      '--quiet',
-      '--ignore-submodules',
-      'HEAD',
-    ]);
+    await execFileAsync(
+      'git',
+      ['diff', '--quiet', '--ignore-submodules', 'HEAD'],
+      {
+        env: process.env,
+        timeout: COMMAND_TIMEOUT_MS,
+        maxBuffer: COMMAND_MAX_BUFFER,
+      },
+    );
   } catch {
     isDirty = true;
   }
@@ -83,7 +92,10 @@ export function collectRunnerMetadata(
 
   return {
     environmentLabel,
-    hostname: hostname(),
+    hostname:
+      process.env['BENCHMARK_INCLUDE_HOSTNAME'] === 'true'
+        ? hostname()
+        : 'redacted',
     platform: process.platform,
     arch: process.arch,
     cpuCount: cpuList.length,

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { resolve } from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -16,7 +16,6 @@ async function createTempDir(): Promise<string> {
 }
 
 afterEach(async () => {
-  const { rm } = await import('fs/promises');
   await Promise.all(
     createdDirectories
       .splice(0)
@@ -47,9 +46,7 @@ describe('site-renderer', () => {
   it('writes the site output from indexes only and removes stale files', async () => {
     const outDir = await createTempDir();
     const staleFilePath = resolve(outDir, 'stale.txt');
-    await import('fs/promises').then(({ writeFile }) =>
-      writeFile(staleFilePath, 'stale\n', 'utf8'),
-    );
+    await writeFile(staleFilePath, 'stale\n', 'utf8');
 
     const createdFiles = await buildBenchmarkSite(fixtureDataDir, outDir);
 
