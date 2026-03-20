@@ -1,0 +1,53 @@
+{
+  "id": "continuous-default",
+  "label": "Continuous default benchmark",
+  "description": "Pinned benchmark profile for automated continuous collection on shared GitHub-hosted runners.",
+  "lane": "continuous",
+  "environment": {
+    "label": "github-hosted-linux-x64",
+    "expectations": [
+      "Build the Nest application before running the collector.",
+      "Keep the benchmark request on POST /export/benchmark for fair dataset reuse across implementations.",
+      "Prefer a clean git worktree for publishable runs."
+    ]
+  },
+  "server": {
+    "baseUrl": "http://127.0.0.1:3100",
+    "port": 3100,
+    "startCommand": ["npm", "run", "start:prod"],
+    "healthChecks": [
+      "/export/exceljs/health",
+      "/export/wasm/status",
+      "/export/rust-wasm/status"
+    ],
+    "startupTimeoutMs": 120000,
+    "healthPollIntervalMs": 1000
+  },
+  "scenario": {
+    "id": "default-benchmark",
+    "label": "POST /export/benchmark default comparison",
+    "sampleCount": 3,
+    "warmupCount": 1,
+    "request": {
+      "limit": 2000,
+      "seed": 12345,
+      "fileName": "benchmark.xlsx",
+      "sheetName": "Data",
+      "includeHeaders": true,
+      "includeMemory": true,
+      "columns": [
+        "id",
+        "fullName",
+        "department",
+        "position",
+        "salary",
+        "hireDate",
+        "employmentStatus"
+      ]
+    },
+    "output": {
+      "format": "json",
+      "artifactKind": "normalized-benchmark-run"
+    }
+  }
+}

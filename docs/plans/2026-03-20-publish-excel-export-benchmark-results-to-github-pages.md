@@ -59,13 +59,13 @@ Add a benchmark publishing pipeline that runs the existing three-exporter compar
 - Create: `scripts/benchmarks/__tests__/benchmark-config.spec.ts`
 - Create: `scripts/benchmarks/__tests__/benchmark-normalizer.spec.ts`
 
-- [ ] define one benchmark profile file that locks request shape and environment expectations for reproducible continuous runs: fixed seed, limit, column set, output metadata, warmup policy, and sample count
-- [ ] keep collection on the existing `POST /export/benchmark` endpoint so all implementations continue to measure the same SQLite-backed dataset path
-- [ ] normalize the controller response into a machine-readable run document with generic implementation entries, scenario metadata, run timestamps, git commit info, runner/toolchain metadata, and collection lane (`continuous` or `recorded`)
-- [ ] validate normalized run documents against a JSON schema so site generation and history indexing only depend on the schema, not the raw HTTP shape
-- [ ] document how the benchmark collector starts the app, waits for health, runs the benchmark, captures the JSON output, and stores the run artifact without mixing in site generation
-- [ ] write tests for benchmark profile loading and payload normalization
-- [ ] run task-level validation before task 2
+- [x] define one benchmark profile file that locks request shape and environment expectations for reproducible continuous runs: fixed seed, limit, column set, output metadata, warmup policy, and sample count
+- [x] keep collection on the existing `POST /export/benchmark` endpoint so all implementations continue to measure the same SQLite-backed dataset path
+- [x] normalize the controller response into a machine-readable run document with generic implementation entries, scenario metadata, run timestamps, git commit info, runner/toolchain metadata, and collection lane (`continuous` or `recorded`)
+- [x] validate normalized run documents against a JSON schema so site generation and history indexing only depend on the schema, not the raw HTTP shape
+- [x] document how the benchmark collector starts the app, waits for health, runs the benchmark, captures the JSON output, and stores the run artifact without mixing in site generation
+- [x] write tests for benchmark profile loading and payload normalization
+- [x] run task-level validation before task 2
 
 ### Task 2: Add immutable benchmark history storage and import flow
 

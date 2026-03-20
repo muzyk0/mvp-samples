@@ -6,12 +6,17 @@ export default defineConfig({
   plugins: [swcVitestPlugin],
   test: {
     environment: 'node',
-    include: ['src/**/*.spec.ts'],
+    include: ['src/**/*.spec.ts', 'scripts/**/*.spec.ts'],
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage',
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/*.spec.ts', 'src/main.ts', 'src/export/interfaces/**'],
+      include: ['src/**/*.ts', 'scripts/**/*.ts'],
+      exclude: [
+        'src/**/*.spec.ts',
+        'scripts/**/*.spec.ts',
+        'src/main.ts',
+        'src/export/interfaces/**',
+      ],
     },
   },
 });

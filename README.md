@@ -104,6 +104,35 @@ bun run test:comparison
 bun run test:rust-wasm
 ```
 
+## Benchmark collection contract
+
+Continuous benchmark collection now uses a pinned profile file:
+
+- `benchmarks/profiles/continuous-default.json`
+
+That profile fixes the benchmark lane, environment label, request payload, warmup/sample counts,
+health checks, and output contract. The collector keeps using `POST /export/benchmark`, so every
+runtime still measures the same SQLite/Prisma-backed dataset path.
+
+The collector script:
+
+1. starts the app with the profile's `startCommand`;
+2. waits for the configured exporter health/status routes to pass;
+3. runs warmup requests that are not stored;
+4. runs measured samples against `POST /export/benchmark`;
+5. normalizes the HTTP payload into a generic implementation list;
+6. validates the normalized run against `benchmarks/schema/benchmark-run.schema.json`;
+7. writes one JSON artifact without mixing in site generation.
+
+Example:
+
+```bash
+bun run build:wasm
+bun run build:rust-wasm
+bun run build
+npm run benchmark:collect -- --profile benchmarks/profiles/continuous-default.json --output .tmp/benchmark-run.json
+```
+
 ## Docs
 
 - `docs/benchmarking.md`

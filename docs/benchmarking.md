@@ -11,6 +11,35 @@ The benchmark compares:
 
 All three variants use the same SQLite/Prisma-backed dataset plan.
 
+## Reproducible collector contract
+
+Automated benchmark collection is defined by:
+
+- profile: `benchmarks/profiles/continuous-default.json`
+- normalized run schema: `benchmarks/schema/benchmark-run.schema.json`
+- collector: `scripts/benchmarks/collect-benchmark-results.ts`
+
+The collector does not add a second benchmark path. It always measures `POST /export/benchmark`,
+then normalizes that controller response into a schema-validated run document with:
+
+- `lane` as `continuous` or `recorded`
+- scenario metadata and pinned request shape
+- generic `implementations[]` entries instead of hard-coded site-facing keys
+- sample timestamps
+- git metadata
+- runner metadata
+- toolchain metadata
+
+The continuous profile currently locks:
+
+- `seed = 12345`
+- `limit = 2000`
+- explicit column selection
+- `includeMemory = true`
+- `warmupCount = 1`
+- `sampleCount = 3`
+- app start command and health checks
+
 ## What the benchmark is trying to measure
 
 For medium and large datasets, look at:
@@ -117,6 +146,24 @@ The helper script fails if:
 - the payload is missing `exceljs`, `goWasm`, or `rustWasm`;
 - row counts do not match across variants.
 
+To collect a publishable normalized artifact with the fixed profile:
+
+```bash
+npm run benchmark:collect -- \
+  --profile benchmarks/profiles/continuous-default.json \
+  --output .tmp/benchmark-run.json
+```
+
+By default the collector starts the app itself, waits for:
+
+- `GET /export/exceljs/health`
+- `GET /export/wasm/status`
+- `GET /export/rust-wasm/status`
+
+Then it executes the profile's warmup/sample policy, validates the normalized JSON against
+`benchmarks/schema/benchmark-run.schema.json`, and stores the artifact at the requested output
+path. If you already have the app running, add `--reuse-server`.
+
 ## 6. Call the benchmark route directly
 
 ```bash
@@ -171,6 +218,35 @@ Diagnostics keys:
 
 - `diagnostics.memory`
 - `diagnostics.executionModel`
+
+## 7a. Normalized run artifact shape
+
+The collector output is intentionally different from the raw controller payload.
+
+Top-level keys:
+
+- `schemaVersion`
+- `lane`
+- `collectedAt`
+- `profile`
+- `source`
+- `git`
+- `runner`
+- `toolchain`
+- `scenario`
+- `samples`
+
+Each sample stores:
+
+- `sampleIndex`
+- `collectedAt`
+- `request`
+- `implementations[]`
+- `comparisons[]`
+- `diagnostics`
+
+This keeps history storage and future site generation tied to one stable schema rather than the
+current raw HTTP response shape.
 
 ## 8. How to read the execution model
 
