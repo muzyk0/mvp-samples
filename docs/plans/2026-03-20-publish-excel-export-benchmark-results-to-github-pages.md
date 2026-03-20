@@ -139,14 +139,14 @@ Add a benchmark publishing pipeline that runs the existing three-exporter compar
 - Create: `scripts/benchmarks/validate-benchmarks.ts`
 - Create: `scripts/benchmarks/__tests__/validate-benchmarks.spec.ts`
 
-- [ ] add explicit scripts for `benchmark:collect`, `benchmark:history`, `benchmark:site`, `benchmark:validate`, `benchmark:pages`, and `benchmark:import-recorded`
-- [ ] document the separation between raw benchmark data collection, history/index generation, and static site generation
-- [ ] document the two benchmark lanes clearly so trend interpretation stays correct: continuous GitHub-runner data versus recorded stronger-hardware data
-- [ ] document the storage contract for raw JSON snapshots and derived indexes, including how a future exporter should be added to the normalized schema without changing site structure
-- [ ] document the local workflow for collecting a run, importing a recorded run, rebuilding history, and previewing the generated site
-- [ ] implement a validation script that checks schema validity, index consistency, latest-pointer correctness, required site outputs, and stable implementation metadata references
-- [ ] write tests for the validation script and documentation-backed command flows where applicable
-- [ ] run task-level validation before task 6
+- [x] add explicit scripts for `benchmark:collect`, `benchmark:history`, `benchmark:site`, `benchmark:validate`, `benchmark:pages`, and `benchmark:import-recorded`
+- [x] document the separation between raw benchmark data collection, history/index generation, and static site generation
+- [x] document the two benchmark lanes clearly so trend interpretation stays correct: continuous GitHub-runner data versus recorded stronger-hardware data
+- [x] document the storage contract for raw JSON snapshots and derived indexes, including how a future exporter should be added to the normalized schema without changing site structure
+- [x] document the local workflow for collecting a run, importing a recorded run, rebuilding history, and previewing the generated site
+- [x] implement a validation script that checks schema validity, index consistency, latest-pointer correctness, required site outputs, and stable implementation metadata references
+- [x] write tests for the validation script and documentation-backed command flows where applicable
+- [x] run task-level validation before task 6
 
 ### Task 6: Verify acceptance criteria
 

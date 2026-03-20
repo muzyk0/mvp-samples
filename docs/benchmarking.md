@@ -11,6 +11,24 @@ The benchmark compares:
 
 All three variants use the same SQLite/Prisma-backed dataset plan.
 
+## Benchmark pipeline boundaries
+
+Keep these steps distinct:
+
+- collection, history/index generation, site generation, and publication are separate commands
+- raw collection still uses `POST /export/benchmark` as the only measurement source
+- site generation reads stored indexes only and never calls the Nest app
+- validation checks the stored run schema, derived indexes, latest pointers, and generated site files
+
+## Benchmark lanes
+
+Two lanes are supported and should be interpreted separately:
+
+- continuous lane: automatic GitHub-hosted runner collection for always-current repository status
+- recorded lane: imported stronger-hardware runs that should remain separate unless explicitly modeled as the same environment
+
+Both lane and `runner.environmentLabel` are part of the storage and trend identity.
+
 ## Reproducible collector contract
 
 Automated benchmark collection is defined by:
@@ -39,6 +57,21 @@ The continuous profile currently locks:
 - `warmupCount = 1`
 - `sampleCount = 3`
 - app start command and health checks
+
+## Storage contract
+
+Raw and derived benchmark artifacts are file-based:
+
+- raw run snapshots: `benchmarks/data/runs/<lane>/<environment>/<yyyy>/<mm>/<timestamp>-<sha>.json`
+- derived indexes: `benchmarks/data/indexes/history-index.json`
+- derived indexes: `benchmarks/data/indexes/latest-runs.json`
+- derived indexes: `benchmarks/data/indexes/run-summaries.json`
+- derived indexes: `benchmarks/data/indexes/scenario-trends.json`
+- derived indexes: `benchmarks/data/indexes/implementations.json`
+
+Future exporters should be added through the normalized schema and implementation metadata indexes,
+not by hard-coding new site sections. The site reads the generic implementation list from stored
+data.
 
 ## What the benchmark is trying to measure
 
@@ -163,6 +196,34 @@ By default the collector starts the app itself, waits for:
 Then it executes the profile's warmup/sample policy, validates the normalized JSON against
 `benchmarks/schema/benchmark-run.schema.json`, and stores the artifact at the requested output
 path. If you already have the app running, add `--reuse-server`.
+
+## 5a. Rebuild history and site artifacts
+
+After benchmark run documents are already stored under your data directory, rebuild derived outputs
+with:
+
+```bash
+npm run benchmark:history -- --data-dir .tmp/benchmarks/data
+npm run benchmark:site -- --data-dir .tmp/benchmarks/data --out-dir .tmp/benchmarks/site
+npm run benchmark:validate -- --data-dir .tmp/benchmarks/data --site-dir .tmp/benchmarks/site
+```
+
+To import a recorded lane run before rebuilding history:
+
+```bash
+npm run benchmark:import-recorded -- --input .tmp/recorded-run.json --data-dir .tmp/benchmarks/data
+```
+
+To collect and store a fresh continuous run into the data directory in one local step, use:
+
+```bash
+npm run benchmark:pages -- \
+  --collect \
+  --profile benchmarks/profiles/continuous-default.json \
+  --benchmark-output .tmp/benchmark-run.json \
+  --data-dir .tmp/benchmarks/data \
+  --site-dir .tmp/benchmarks/site
+```
 
 ## 6. Call the benchmark route directly
 

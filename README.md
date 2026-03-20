@@ -133,9 +133,39 @@ bun run build
 npm run benchmark:collect -- --profile benchmarks/profiles/continuous-default.json --output .tmp/benchmark-run.json
 ```
 
+## Benchmark publishing pipeline
+
+The benchmark publication flow is intentionally split into separate stages:
+
+1. collect one normalized raw run document from `POST /export/benchmark`
+2. store/import immutable raw JSON under `benchmarks/data/runs/...`
+3. rebuild history indexes under `benchmarks/data/indexes/...`
+4. generate a static site from stored indexes only
+5. validate the stored data and generated site before publication
+
+The project keeps two histories separate on purpose:
+
+- continuous GitHub-hosted runner history
+- recorded dedicated-hardware history
+
+That separation is carried in the lane plus environment label, so trend views do not silently mix
+GitHub runner noise with manually collected workstation runs.
+
+Developer commands:
+
+```bash
+npm run benchmark:collect -- --profile benchmarks/profiles/continuous-default.json --output .tmp/benchmark-run.json
+npm run benchmark:import-recorded -- --input .tmp/recorded-run.json --data-dir .tmp/benchmarks/data
+npm run benchmark:history -- --data-dir .tmp/benchmarks/data
+npm run benchmark:site -- --data-dir .tmp/benchmarks/data --out-dir .tmp/benchmarks/site
+npm run benchmark:validate -- --data-dir .tmp/benchmarks/data --site-dir .tmp/benchmarks/site
+npm run benchmark:pages -- --collect
+```
+
 ## Docs
 
 - `docs/benchmarking.md`
+- `docs/benchmark-pages.md`
 - `docs/benchmark-results-streaming.md`
 - `docs/rust-wasm-notes.md`
 - `docs/plans/completed/issue-7-rust-wasm-export-plan.md`

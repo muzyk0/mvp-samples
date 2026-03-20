@@ -26,6 +26,7 @@
     "benchmark:history": "ts-node --project tsconfig.json scripts/benchmarks/update-history.ts",
     "benchmark:import-recorded": "ts-node --project tsconfig.json scripts/benchmarks/import-recorded-run.ts",
     "benchmark:site": "ts-node --project tsconfig.json scripts/benchmarks/build-site.ts",
+    "benchmark:validate": "ts-node --project tsconfig.json scripts/benchmarks/validate-benchmarks.ts",
     "benchmark:pages": "ts-node --project tsconfig.json scripts/benchmarks/publish-pages.ts",
     "prepare": "sh -c 'git rev-parse --show-toplevel >/dev/null 2>&1 && git config core.hooksPath .husky || true'",
     "prisma:generate": "prisma generate",
