@@ -15,9 +15,7 @@
       "label": "Continuous default benchmark",
       "environmentLabel": "github-hosted-linux-x64",
       "description": "Pinned GitHub runner profile",
-      "expectations": [
-        "Use the shared benchmark route"
-      ]
+      "expectations": ["Use the shared benchmark route"]
     },
     "scenario": {
       "id": "default-benchmark",
@@ -27,11 +25,7 @@
       "request": {
         "limit": 2000,
         "seed": 12345,
-        "columns": [
-          "id",
-          "fullName",
-          "department"
-        ],
+        "columns": ["id", "fullName", "department"],
         "fileName": "benchmark.xlsx",
         "includeMemory": true
       }
@@ -121,9 +115,7 @@
       "label": "Recorded workstation benchmark",
       "environmentLabel": "dedicated-linux-workstation",
       "description": "Dedicated hardware import",
-      "expectations": [
-        "Imported from stronger hardware"
-      ]
+      "expectations": ["Imported from stronger hardware"]
     },
     "scenario": {
       "id": "default-benchmark",
@@ -133,11 +125,7 @@
       "request": {
         "limit": 2000,
         "seed": 12345,
-        "columns": [
-          "id",
-          "fullName",
-          "department"
-        ],
+        "columns": ["id", "fullName", "department"],
         "fileName": "benchmark.xlsx",
         "includeMemory": true
       }
