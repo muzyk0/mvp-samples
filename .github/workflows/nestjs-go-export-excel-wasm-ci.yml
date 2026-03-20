@@ -5,9 +5,34 @@ on:
   pull_request:
 
 jobs:
-  nestjs-go-export-excel-wasm:
+  lint-and-build:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bun run prisma:generate
+
+      - name: Format check
+        run: bun run format:check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build Nest app
+        run: bun run build
+
+  go-wasm:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,25 +50,108 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Generate Prisma client
-        run: bun run prisma:generate
-
-      - name: Build WASM bridge
+      - name: Build Go WASM bridge
         run: bun run build:wasm
 
-      - name: Lint
-        run: bun run lint
+      - name: Upload Go WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-wasm-artifacts
+          path: |
+            excel-streamer/excel_bridge.wasm
+            excel-streamer/wasm_exec.js
 
-      - name: Build
-        run: bun run build
+  rust-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Unit tests
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Rust WASM bridge
+        run: bun run build:rust-wasm
+
+      - name: Smoke test Rust WASM bridge
+        run: bun run test:rust-wasm
+
+      - name: Upload Rust WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-wasm-artifacts
+          path: |
+            rust-excel-streamer/pkg
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs:
+      - lint-and-build
+      - rust-wasm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Download Rust WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-wasm-artifacts
+          path: rust-excel-streamer/pkg
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run unit tests
         run: bun run test
 
-      - name: E2E tests
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs:
+      - go-wasm
+      - rust-wasm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Download Go WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: go-wasm-artifacts
+          path: excel-streamer
+
+      - name: Download Rust WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-wasm-artifacts
+          path: rust-excel-streamer/pkg
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run e2e tests
         run: bun run test:e2e
 
-      - name: Comparison validation
+      - name: Run comparison validation
         run: |
           PORT=3100 bun dist/src/main.js &
           APP_PID=$!

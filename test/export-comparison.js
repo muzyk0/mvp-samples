@@ -46,10 +46,53 @@ async function main() {
       );
     }
 
+    if (!payload?.exceljs || !payload?.goWasm || !payload?.rustWasm) {
+      throw new Error(
+        'Benchmark payload is missing one or more variant summaries',
+      );
+    }
+
+    if (
+      !payload?.deltas?.goWasmVsExceljs ||
+      !payload?.deltas?.rustWasmVsExceljs ||
+      !payload?.deltas?.rustWasmVsGoWasm
+    ) {
+      throw new Error(
+        'Benchmark payload is missing one or more delta summaries',
+      );
+    }
+
+    if (
+      !payload?.diagnostics?.memory ||
+      !payload?.diagnostics?.executionModel
+    ) {
+      throw new Error('Benchmark payload is missing diagnostics metadata');
+    }
+
+    const rowCounts = [
+      payload.exceljs?.rowCount,
+      payload.goWasm?.rowCount,
+      payload.rustWasm?.rowCount,
+    ];
+
+    if (!rowCounts.every((value) => typeof value === 'number')) {
+      throw new Error(
+        'Benchmark payload is missing valid rowCount in one or more variants',
+      );
+    }
+
+    if (new Set(rowCounts).size !== 1) {
+      throw new Error(
+        'Benchmark payload returned mismatched row counts across variants',
+      );
+    }
+
     console.log(JSON.stringify(payload, null, 2));
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error(`Benchmark request timed out after ${REQUEST_TIMEOUT_MS}ms`);
+      throw new Error(
+        `Benchmark request timed out after ${REQUEST_TIMEOUT_MS}ms`,
+      );
     }
 
     throw error;
