@@ -34,7 +34,7 @@ The benchmark response makes this explicit in `diagnostics.memory`.
 ## 1. Move into the sample
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples
+cd /path/to/mvp-samples
 ```
 
 ## 2. Prepare the dataset
@@ -99,7 +99,7 @@ curl http://localhost:3100/export/rust-wasm/status
 In a separate shell:
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples
+cd /path/to/mvp-samples
 ```
 
 Example runs:
@@ -212,7 +212,7 @@ instrumentation.
 If you want the shortest realistic three-variant benchmark flow:
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples
+cd /path/to/mvp-samples
 export SEED_EMPLOYEE_COUNT=200000
 export SEED_DATASET_SEED=20260315
 export SEED_BATCH_SIZE=1000
@@ -228,15 +228,15 @@ PORT=3100 bun run start:prod
 Then in another shell:
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples
+cd /path/to/mvp-samples
 BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 npm run test:comparison
-cd /home/admin/.openclaw/workspace/projects/mvp-samples
+cd /path/to/mvp-samples
 BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 bun run test:comparison
 ```
 
 If Bun is unavailable in the shell, use:
 
 ```bash
-cd /home/admin/.openclaw/workspace/projects/mvp-samples
+cd /path/to/mvp-samples
 BASE_URL=http://localhost:3100 LIMIT=100000 SEED=12345 TIMEOUT=300000 node test/export-comparison.js
 ```

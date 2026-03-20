@@ -116,6 +116,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: bun run prisma:generate
+
       - name: Run unit tests
         run: bun run test
 
@@ -147,6 +150,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bun run prisma:generate
 
       - name: Run e2e tests
         run: bun run test:e2e
