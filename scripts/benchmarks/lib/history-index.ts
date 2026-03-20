@@ -15,6 +15,55 @@ export interface BenchmarkImplementationIndexEntry {
   contentTypes: string[];
 }
 
+export interface BenchmarkRunImplementationSummary {
+  id: string;
+  label: string;
+  sourceKey: string;
+  variant: string;
+  executionModel: string;
+  contentType: string;
+  fileName: string;
+  sampleCount: number;
+  avgDurationMs: number;
+  avgSizeBytes: number;
+  avgMemoryDeltaBytes?: number;
+  rowCount: number;
+  columnCount: number;
+}
+
+export interface BenchmarkRunSummary {
+  runPath: string;
+  lane: string;
+  environment: string;
+  collectedAt: string;
+  git: {
+    commitSha: string;
+    shortSha: string;
+    branch: string;
+    isDirty: boolean;
+  };
+  profile: {
+    id: string;
+    label: string;
+    environmentLabel: string;
+    description?: string;
+    expectations: string[];
+  };
+  scenario: {
+    id: string;
+    label: string;
+    sampleCount: number;
+    warmupCount: number;
+    request: NormalizedBenchmarkRun['scenario']['request'];
+  };
+  runner: NormalizedBenchmarkRun['runner'];
+  toolchain: NormalizedBenchmarkRun['toolchain'];
+  diagnostics: {
+    memory: NormalizedBenchmarkRun['samples'][number]['diagnostics']['memory'];
+  };
+  implementations: Record<string, BenchmarkRunImplementationSummary>;
+}
+
 export interface ScenarioTrendPoint {
   collectedAt: string;
   runPath: string;
@@ -38,6 +87,7 @@ export interface BenchmarkHistoryIndexes {
     byLaneEnvironment: Record<string, number>;
   };
   latestRuns: Record<string, Record<string, string>>;
+  runSummaries: Record<string, BenchmarkRunSummary>;
   scenarios: Record<
     string,
     {
@@ -83,6 +133,121 @@ function getScenarioIndexKey(run: NormalizedBenchmarkRun): string {
   return `${run.lane}::${run.runner.environmentLabel}::${run.scenario.id}`;
 }
 
+function roundMetric(value: number): number {
+  return Number(value.toFixed(3));
+}
+
+function summarizeRun(
+  run: NormalizedBenchmarkRun,
+  relativePath: string,
+): BenchmarkRunSummary {
+  const implementations = new Map<
+    string,
+    {
+      id: string;
+      label: string;
+      sourceKey: string;
+      variant: string;
+      executionModel: string;
+      contentType: string;
+      fileName: string;
+      durationMsTotal: number;
+      sizeBytesTotal: number;
+      memoryDeltaBytesTotal: number;
+      memorySampleCount: number;
+      sampleCount: number;
+      rowCount: number;
+      columnCount: number;
+    }
+  >();
+
+  for (const sample of run.samples) {
+    for (const implementation of sample.implementations) {
+      const existing = implementations.get(implementation.id) ?? {
+        id: implementation.id,
+        label: implementation.label,
+        sourceKey: implementation.sourceKey,
+        variant: implementation.variant,
+        executionModel: implementation.executionModel,
+        contentType: implementation.contentType,
+        fileName: implementation.fileName,
+        durationMsTotal: 0,
+        sizeBytesTotal: 0,
+        memoryDeltaBytesTotal: 0,
+        memorySampleCount: 0,
+        sampleCount: 0,
+        rowCount: implementation.metrics.rowCount,
+        columnCount: implementation.metrics.columnCount,
+      };
+
+      existing.durationMsTotal += implementation.metrics.durationMs;
+      existing.sizeBytesTotal += implementation.metrics.sizeBytes;
+      existing.sampleCount += 1;
+      existing.rowCount = implementation.metrics.rowCount;
+      existing.columnCount = implementation.metrics.columnCount;
+      existing.fileName = implementation.fileName;
+      if (implementation.metrics.memoryDeltaBytes !== undefined) {
+        existing.memoryDeltaBytesTotal +=
+          implementation.metrics.memoryDeltaBytes;
+        existing.memorySampleCount += 1;
+      }
+      implementations.set(implementation.id, existing);
+    }
+  }
+
+  return {
+    runPath: relativePath,
+    lane: run.lane,
+    environment: run.runner.environmentLabel,
+    collectedAt: run.collectedAt,
+    git: run.git,
+    profile: run.profile,
+    scenario: run.scenario,
+    runner: run.runner,
+    toolchain: run.toolchain,
+    diagnostics: {
+      memory: run.samples[0]?.diagnostics.memory ?? {
+        nodeHeapDeltaMeasured: false,
+        wasmLinearMemoryIncluded: false,
+        note: '',
+      },
+    },
+    implementations: Object.fromEntries(
+      [...implementations.entries()]
+        .sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
+        .map(([implementationId, implementation]) => [
+          implementationId,
+          {
+            id: implementation.id,
+            label: implementation.label,
+            sourceKey: implementation.sourceKey,
+            variant: implementation.variant,
+            executionModel: implementation.executionModel,
+            contentType: implementation.contentType,
+            fileName: implementation.fileName,
+            sampleCount: implementation.sampleCount,
+            avgDurationMs: roundMetric(
+              implementation.durationMsTotal / implementation.sampleCount,
+            ),
+            avgSizeBytes: roundMetric(
+              implementation.sizeBytesTotal / implementation.sampleCount,
+            ),
+            ...(implementation.memorySampleCount === 0
+              ? {}
+              : {
+                  avgMemoryDeltaBytes: roundMetric(
+                    implementation.memoryDeltaBytesTotal /
+                      implementation.memorySampleCount,
+                  ),
+                }),
+            rowCount: implementation.rowCount,
+            columnCount: implementation.columnCount,
+          } satisfies BenchmarkRunImplementationSummary,
+        ]),
+    ),
+  };
+}
+
 export function buildHistoryIndexes(
   storedRuns: StoredBenchmarkRun[],
   generatedAt = new Date().toISOString(),
@@ -103,6 +268,7 @@ export function buildHistoryIndexes(
       byLaneEnvironment: {},
     },
     latestRuns: {},
+    runSummaries: {},
     scenarios: {},
     implementations: {},
   };
@@ -115,6 +281,7 @@ export function buildHistoryIndexes(
       (indexes.runs.byLaneEnvironment[laneEnvironmentKey] ?? 0) + 1;
     indexes.latestRuns[run.lane] ??= {};
     indexes.latestRuns[run.lane][run.runner.environmentLabel] = relativePath;
+    indexes.runSummaries[relativePath] = summarizeRun(run, relativePath);
 
     const scenarioKey = getScenarioIndexKey(run);
     const scenarioEntry =
@@ -201,6 +368,7 @@ export async function writeHistoryIndexes(
   const files = [
     ['history-index.json', indexes],
     ['latest-runs.json', indexes.latestRuns],
+    ['run-summaries.json', indexes.runSummaries],
     ['scenario-trends.json', indexes.scenarios],
     ['implementations.json', indexes.implementations],
   ] as const;

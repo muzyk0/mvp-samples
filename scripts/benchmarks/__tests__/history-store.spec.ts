@@ -234,6 +234,23 @@ describe('history-store', () => {
           'runs/recorded/dedicated-linux-workstation/2026/03/2026-03-21T09-00-00-000Z-fedcba9.json',
       },
     });
+    expect(
+      indexes.runSummaries[
+        'runs/continuous/github-hosted-linux-x64/2026/03/2026-03-20T09-00-00-000Z-0123456.json'
+      ],
+    ).toMatchObject({
+      diagnostics: {
+        memory: {
+          note: 'Node heap only',
+        },
+      },
+      implementations: {
+        exceljs: {
+          avgDurationMs: 100,
+          avgMemoryDeltaBytes: 400,
+        },
+      },
+    });
     expect(Object.keys(indexes.scenarios)).toEqual([
       'continuous::github-hosted-linux-x64::default-benchmark',
       'recorded::dedicated-linux-workstation::default-benchmark',

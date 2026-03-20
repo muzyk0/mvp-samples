@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Excel Export Benchmark Results</title>
+    <meta
+      name="description"
+      content="Static benchmark results for ExcelJS, Go/WASM, and Rust/WASM export comparisons."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <p class="eyebrow">GitHub Pages benchmark report</p>
+        <h1>Excel export benchmarks without a runtime app dependency</h1>
+        <p class="hero-copy">
+          This site is generated from stored benchmark indexes only. It does not
+          call the Nest benchmark endpoint at runtime.
+        </p>
+        <dl class="hero-stats" id="hero-stats"></dl>
+      </header>
+
+      <main class="layout">
+        <section class="panel" aria-labelledby="current-results-title">
+          <div class="panel-header">
+            <p class="panel-kicker">Current snapshots</p>
+            <h2 id="current-results-title">Latest results by lane and environment</h2>
+          </div>
+          <div id="latest-results" class="stack"></div>
+        </section>
+
+        <section class="panel" aria-labelledby="trend-title">
+          <div class="panel-header">
+            <p class="panel-kicker">History</p>
+            <h2 id="trend-title">Trend views</h2>
+          </div>
+          <div id="trend-views" class="stack"></div>
+        </section>
+
+        <section class="panel" aria-labelledby="implementation-title">
+          <div class="panel-header">
+            <p class="panel-kicker">Implementation catalog</p>
+            <h2 id="implementation-title">Normalized runtime definitions</h2>
+          </div>
+          <div id="implementation-catalog" class="catalog-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <noscript>This report needs JavaScript to render the generated JSON payload.</noscript>
+    <script src="./app.js" defer></script>
+  </body>
+  </html>

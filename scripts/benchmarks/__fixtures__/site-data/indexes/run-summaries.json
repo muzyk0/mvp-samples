@@ -1,0 +1,214 @@
+{
+  "runs/continuous/github-hosted-linux-x64/2026/03/2026-03-20T09-00-00-000Z-aaaaaaa.json": {
+    "runPath": "runs/continuous/github-hosted-linux-x64/2026/03/2026-03-20T09-00-00-000Z-aaaaaaa.json",
+    "lane": "continuous",
+    "environment": "github-hosted-linux-x64",
+    "collectedAt": "2026-03-20T09:00:00.000Z",
+    "git": {
+      "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "shortSha": "aaaaaaa",
+      "branch": "main",
+      "isDirty": false
+    },
+    "profile": {
+      "id": "continuous-default",
+      "label": "Continuous default benchmark",
+      "environmentLabel": "github-hosted-linux-x64",
+      "description": "Pinned GitHub runner profile",
+      "expectations": [
+        "Use the shared benchmark route"
+      ]
+    },
+    "scenario": {
+      "id": "default-benchmark",
+      "label": "Default benchmark",
+      "sampleCount": 3,
+      "warmupCount": 1,
+      "request": {
+        "limit": 2000,
+        "seed": 12345,
+        "columns": [
+          "id",
+          "fullName",
+          "department"
+        ],
+        "fileName": "benchmark.xlsx",
+        "includeMemory": true
+      }
+    },
+    "runner": {
+      "environmentLabel": "github-hosted-linux-x64",
+      "hostname": "gh-runner-01",
+      "platform": "linux",
+      "arch": "x64",
+      "cpuCount": 4,
+      "cpuModel": "Example CPU",
+      "totalMemoryBytes": 16384
+    },
+    "toolchain": {
+      "nodeVersion": "v22.0.0",
+      "npmVersion": "10.0.0",
+      "bunVersion": "1.3.10",
+      "goVersion": "go version go1.25.0 linux/amd64",
+      "rustVersion": "rustc 1.90.0"
+    },
+    "diagnostics": {
+      "memory": {
+        "nodeHeapDeltaMeasured": true,
+        "wasmLinearMemoryIncluded": false,
+        "note": "Node heap only"
+      }
+    },
+    "implementations": {
+      "exceljs": {
+        "id": "exceljs",
+        "label": "ExcelJS",
+        "sourceKey": "exceljs",
+        "variant": "exceljs",
+        "executionModel": "streams",
+        "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "fileName": "exceljs.xlsx",
+        "sampleCount": 3,
+        "avgDurationMs": 100,
+        "avgSizeBytes": 10000,
+        "avgMemoryDeltaBytes": 512000,
+        "rowCount": 2000,
+        "columnCount": 3
+      },
+      "goWasm": {
+        "id": "goWasm",
+        "label": "Go/WASM",
+        "sourceKey": "goWasm",
+        "variant": "wasm",
+        "executionModel": "finalizes via callbacks",
+        "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "fileName": "go-wasm.xlsx",
+        "sampleCount": 3,
+        "avgDurationMs": 80,
+        "avgSizeBytes": 9800,
+        "rowCount": 2000,
+        "columnCount": 3
+      },
+      "rustWasm": {
+        "id": "rustWasm",
+        "label": "Rust/WASM",
+        "sourceKey": "rustWasm",
+        "variant": "rust-wasm",
+        "executionModel": "final buffer",
+        "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "fileName": "rust-wasm.xlsx",
+        "sampleCount": 3,
+        "avgDurationMs": 74,
+        "avgSizeBytes": 9600,
+        "rowCount": 2000,
+        "columnCount": 3
+      }
+    }
+  },
+  "runs/recorded/dedicated-linux-workstation/2026/03/2026-03-20T10-00-00-000Z-bbbbbbb.json": {
+    "runPath": "runs/recorded/dedicated-linux-workstation/2026/03/2026-03-20T10-00-00-000Z-bbbbbbb.json",
+    "lane": "recorded",
+    "environment": "dedicated-linux-workstation",
+    "collectedAt": "2026-03-20T10:00:00.000Z",
+    "git": {
+      "commitSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "shortSha": "bbbbbbb",
+      "branch": "main",
+      "isDirty": false
+    },
+    "profile": {
+      "id": "recorded-workstation",
+      "label": "Recorded workstation benchmark",
+      "environmentLabel": "dedicated-linux-workstation",
+      "description": "Dedicated hardware import",
+      "expectations": [
+        "Imported from stronger hardware"
+      ]
+    },
+    "scenario": {
+      "id": "default-benchmark",
+      "label": "Default benchmark",
+      "sampleCount": 5,
+      "warmupCount": 1,
+      "request": {
+        "limit": 2000,
+        "seed": 12345,
+        "columns": [
+          "id",
+          "fullName",
+          "department"
+        ],
+        "fileName": "benchmark.xlsx",
+        "includeMemory": true
+      }
+    },
+    "runner": {
+      "environmentLabel": "dedicated-linux-workstation",
+      "hostname": "workstation-01",
+      "platform": "linux",
+      "arch": "x64",
+      "cpuCount": 16,
+      "cpuModel": "Workstation CPU",
+      "totalMemoryBytes": 65536
+    },
+    "toolchain": {
+      "nodeVersion": "v22.0.0",
+      "npmVersion": "10.0.0",
+      "bunVersion": "1.3.10",
+      "goVersion": "go version go1.25.0 linux/amd64",
+      "rustVersion": "rustc 1.90.0"
+    },
+    "diagnostics": {
+      "memory": {
+        "nodeHeapDeltaMeasured": true,
+        "wasmLinearMemoryIncluded": false,
+        "note": "Node heap only"
+      }
+    },
+    "implementations": {
+      "exceljs": {
+        "id": "exceljs",
+        "label": "ExcelJS",
+        "sourceKey": "exceljs",
+        "variant": "exceljs",
+        "executionModel": "streams",
+        "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "fileName": "exceljs.xlsx",
+        "sampleCount": 5,
+        "avgDurationMs": 88,
+        "avgSizeBytes": 9990,
+        "avgMemoryDeltaBytes": 400000,
+        "rowCount": 2000,
+        "columnCount": 3
+      },
+      "goWasm": {
+        "id": "goWasm",
+        "label": "Go/WASM",
+        "sourceKey": "goWasm",
+        "variant": "wasm",
+        "executionModel": "finalizes via callbacks",
+        "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "fileName": "go-wasm.xlsx",
+        "sampleCount": 5,
+        "avgDurationMs": 62,
+        "avgSizeBytes": 9780,
+        "rowCount": 2000,
+        "columnCount": 3
+      },
+      "rustWasm": {
+        "id": "rustWasm",
+        "label": "Rust/WASM",
+        "sourceKey": "rustWasm",
+        "variant": "rust-wasm",
+        "executionModel": "final buffer",
+        "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "fileName": "rust-wasm.xlsx",
+        "sampleCount": 5,
+        "avgDurationMs": 58,
+        "avgSizeBytes": 9550,
+        "rowCount": 2000,
+        "columnCount": 3
+      }
+    }
+  }
+}

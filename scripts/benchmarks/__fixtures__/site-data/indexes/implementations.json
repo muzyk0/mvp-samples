@@ -1,0 +1,50 @@
+{
+  "exceljs": {
+    "id": "exceljs",
+    "label": "ExcelJS",
+    "sourceKeys": [
+      "exceljs"
+    ],
+    "variants": [
+      "exceljs"
+    ],
+    "executionModels": [
+      "streams"
+    ],
+    "contentTypes": [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ]
+  },
+  "goWasm": {
+    "id": "goWasm",
+    "label": "Go/WASM",
+    "sourceKeys": [
+      "goWasm"
+    ],
+    "variants": [
+      "wasm"
+    ],
+    "executionModels": [
+      "finalizes via callbacks"
+    ],
+    "contentTypes": [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ]
+  },
+  "rustWasm": {
+    "id": "rustWasm",
+    "label": "Rust/WASM",
+    "sourceKeys": [
+      "rustWasm"
+    ],
+    "variants": [
+      "rust-wasm"
+    ],
+    "executionModels": [
+      "final buffer"
+    ],
+    "contentTypes": [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ]
+  }
+}

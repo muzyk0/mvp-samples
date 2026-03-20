@@ -25,6 +25,7 @@
     "benchmark:collect": "ts-node --project tsconfig.json scripts/benchmarks/collect-benchmark-results.ts",
     "benchmark:history": "ts-node --project tsconfig.json scripts/benchmarks/update-history.ts",
     "benchmark:import-recorded": "ts-node --project tsconfig.json scripts/benchmarks/import-recorded-run.ts",
+    "benchmark:site": "ts-node --project tsconfig.json scripts/benchmarks/build-site.ts",
     "prepare": "sh -c 'git rev-parse --show-toplevel >/dev/null 2>&1 && git config core.hooksPath .husky || true'",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init-sqlite",

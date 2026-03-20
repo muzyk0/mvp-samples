@@ -101,14 +101,14 @@ Add a benchmark publishing pipeline that runs the existing three-exporter compar
 - Create: `scripts/benchmarks/__tests__/site-data-builder.spec.ts`
 - Create: `scripts/benchmarks/__tests__/site-renderer.spec.ts`
 
-- [ ] build the Pages site from stored JSON indexes only; the deployed site must not call the Nest app at runtime
-- [ ] keep the site implementation simple: static HTML/CSS/vanilla JS with generated JSON payloads and optional generated SVG charts
-- [ ] include current benchmark summaries, historical trend views, and side-by-side comparisons across implementations
-- [ ] render from the generic implementation list so adding a fourth runtime later only requires new normalized data, not hard-coded new page sections
-- [ ] show benchmark metadata prominently: lane, environment label, runner/tool versions, commit SHA, benchmark profile, row count, and current memory caveats from diagnostics
-- [ ] keep site output deterministic so repeated builds over the same benchmark data produce the same files
-- [ ] write tests against fixture benchmark data to validate site data shaping and generated static output
-- [ ] run task-level validation before task 4
+- [x] build the Pages site from stored JSON indexes only; the deployed site must not call the Nest app at runtime
+- [x] keep the site implementation simple: static HTML/CSS/vanilla JS with generated JSON payloads and optional generated SVG charts
+- [x] include current benchmark summaries, historical trend views, and side-by-side comparisons across implementations
+- [x] render from the generic implementation list so adding a fourth runtime later only requires new normalized data, not hard-coded new page sections
+- [x] show benchmark metadata prominently: lane, environment label, runner/tool versions, commit SHA, benchmark profile, row count, and current memory caveats from diagnostics
+- [x] keep site output deterministic so repeated builds over the same benchmark data produce the same files
+- [x] write tests against fixture benchmark data to validate site data shaping and generated static output
+- [x] run task-level validation before task 4
 
 ### Task 4: Add GitHub Actions workflows for benchmark collection and Pages publishing
 
