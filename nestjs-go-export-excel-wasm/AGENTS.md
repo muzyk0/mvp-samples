@@ -2,9 +2,10 @@
 
 ## Project identity
 
-This sample compares **two Excel export implementations in NestJS** over the **same SQLite-backed dataset**:
+This sample compares **three Excel export implementations in NestJS** over the **same SQLite-backed dataset**:
 - `exceljs`
-- Go/WASM
+- Go/WASM (`wasm`)
+- Rust/WASM (`rust-wasm`)
 
 The point of the sample is not just "export to Excel", but a **fair comparison** between export variants.
 
@@ -40,17 +41,21 @@ If you change filtering, slicing, ordering, seed behavior, or column mapping:
 ### Exporters
 - `src/export/services/exceljs-export.service.ts`
 - `src/export/services/wasm-excel.service.ts`
+- `src/export/services/rust-wasm-excel.service.ts`
 
 ### Controllers
 - `src/export/controllers/exceljs-export.controller.ts`
 - `src/export/controllers/wasm-export.controller.ts`
-- `src/export/controllers/benchmark.controller.ts`
+- `src/export/controllers/rust-wasm-export.controller.ts`
+- `src/export/controllers/export-benchmark.controller.ts`
 - `src/export/controllers/export-data.controller.ts`
 
 ### WASM assets
 Canonical WASM runtime assets live in:
 - `excel-streamer/excel_bridge.wasm`
 - `excel-streamer/wasm_exec.js`
+- `rust-excel-streamer/pkg/rust_excel_streamer.js`
+- `rust-excel-streamer/pkg/rust_excel_streamer_bg.wasm`
 
 Do not add mirrored copies elsewhere unless there is a real runtime requirement.
 
@@ -62,6 +67,9 @@ Treat these as the current live routes unless code changes them explicitly:
 - `POST /export/wasm/download`
 - `GET /export/wasm/quick`
 - `GET /export/wasm/status`
+- `POST /export/rust-wasm/download`
+- `GET /export/rust-wasm/quick`
+- `GET /export/rust-wasm/status`
 - `POST /export/benchmark`
 - `GET /export/benchmark/default`
 - `POST /export/data`
@@ -73,22 +81,31 @@ If you change active routes:
 
 ## Testing expectations
 
-Before claiming the sample works, run the real checks:
+Before claiming the sample works, run the real checks from the sample directory:
 
 ```bash
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-npm run build
-npm test -- --runInBand
-npm run test:e2e -- --runInBand
+bun run prisma:generate
+bun run prisma:migrate
+bun run prisma:seed
+bun run build:wasm
+bun run build:rust-wasm
+bun run build
+bun run lint
+bun run test
+bun run test:e2e
 ```
 
 If comparing both variants manually:
 
 ```bash
-npm run start:dev
-npm run test:comparison
+bun run start:dev
+bun run test:comparison
+```
+
+If Bun is unavailable but the app is already running, use:
+
+```bash
+BASE_URL=http://localhost:3000 node test/export-comparison.js
 ```
 
 ## Editing rules
@@ -113,6 +130,9 @@ If another variant is added later:
 - add tests;
 - make benchmark output compare it explicitly rather than implicitly.
 
-## Notes on WASM path
-The WASM exporter is still more fragile than `exceljs` and currently relies on serialized execution because of Go/WASM runtime characteristics.
-That is acceptable for this sample, but do not misrepresent it as equivalent in operational simplicity.
+## Notes on WASM paths
+- Go/WASM remains more fragile than `exceljs` and currently relies on serialized execution because of Go runtime characteristics.
+- Rust/WASM uses generated local assets, not a separate native Rust backend or standalone service, and currently serializes execution in the NestJS bridge to avoid re-entrancy surprises.
+- Do not claim either WASM path is true row-streaming XLSX unless bytes are shown to leave the runtime before workbook finalization.
+- Benchmark `memoryDeltaBytes` reflects Node heap deltas only unless the payload and code explicitly add separate WASM memory instrumentation.
+- The benchmark payload is explicit now: `exceljs`, `goWasm`, `rustWasm`, `deltas`, and `diagnostics`.

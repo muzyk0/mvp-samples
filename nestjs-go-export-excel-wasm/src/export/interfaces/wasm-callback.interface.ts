@@ -8,3 +8,7 @@ export interface WasmExportResult {
   size?: number;
   duration?: number;
 }
+
+export interface RustWasmModule {
+  generate_workbook_from_json(payloadJson: string): Uint8Array;
+}

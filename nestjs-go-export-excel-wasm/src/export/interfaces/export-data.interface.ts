@@ -41,8 +41,10 @@ export interface WasmProgress {
   percentage: number;
 }
 
+export type ExportVariant = 'exceljs' | 'wasm' | 'rust-wasm';
+
 export interface ExportExecutionResult {
-  variant: 'exceljs' | 'wasm';
+  variant: ExportVariant;
   fileName: string;
   contentType: string;
   durationMs: number;
@@ -61,6 +63,25 @@ export interface StreamExportExecutionOptions {
 
 export type ExportExecutionSummary = ExportExecutionResult;
 
+export interface ExportBenchmarkDelta {
+  durationMs: number;
+  sizeBytes: number;
+  memoryDeltaBytes?: number;
+}
+
+export interface ExportBenchmarkDiagnostics {
+  memory: {
+    nodeHeapDeltaMeasured: boolean;
+    wasmLinearMemoryIncluded: boolean;
+    note: string;
+  };
+  executionModel: {
+    exceljs: string;
+    goWasm: string;
+    rustWasm: string;
+  };
+}
+
 export interface ExportBenchmarkResult {
   request: {
     limit: number;
@@ -68,10 +89,12 @@ export interface ExportBenchmarkResult {
     columns: string[];
   };
   exceljs: ExportExecutionSummary;
-  wasm: ExportExecutionSummary;
-  delta: {
-    durationMs: number;
-    sizeBytes: number;
-    memoryDeltaBytes?: number;
+  goWasm: ExportExecutionSummary;
+  rustWasm: ExportExecutionSummary;
+  deltas: {
+    goWasmVsExceljs: ExportBenchmarkDelta;
+    rustWasmVsExceljs: ExportBenchmarkDelta;
+    rustWasmVsGoWasm: ExportBenchmarkDelta;
   };
+  diagnostics: ExportBenchmarkDiagnostics;
 }

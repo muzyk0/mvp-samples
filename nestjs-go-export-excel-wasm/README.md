@@ -1,55 +1,75 @@
 # nestjs-go-export-excel-wasm
 
-Sample для честного сравнения двух **streaming Excel export** путей в NestJS, где оба экспортёра (`exceljs` и Go/WASM) читают **один и тот же dataset из SQLite через Prisma**.
+NestJS sample for a fair Excel export comparison across three implementations that all read the
+same SQLite/Prisma dataset:
 
-## Что внутри
+- `exceljs`
+- `wasm` (Go/WASM)
+- `rust-wasm`
 
-- Prisma ORM + SQLite (`prisma/schema.prisma`, migration, seed)
-- NestJS `PrismaModule` / `PrismaService`
-- единый repository/data-access слой для export dataset
-- общий stream-plan для обоих экспортёров
-- два HTTP entrypoint'а:
+This is not a generic export demo. The sample exists to compare exporter behavior while keeping
+data access, request parameters, and benchmark semantics aligned.
+
+## What is in the sample
+
+- SQLite + Prisma dataset and seed flow
+- shared repository-backed export data pipeline
+- shared stream-plan generation for every exporter
+- three HTTP download surfaces:
   - `POST /export/exceljs/download`
   - `POST /export/wasm/download`
-- benchmark endpoint:
+  - `POST /export/rust-wasm/download`
+- quick/status routes:
+  - `GET /export/exceljs/quick`
+  - `GET /export/exceljs/health`
+  - `GET /export/wasm/quick`
+  - `GET /export/wasm/status`
+  - `GET /export/rust-wasm/quick`
+  - `GET /export/rust-wasm/status`
+- comparison/benchmark routes:
   - `GET /export/benchmark/default`
   - `POST /export/benchmark`
-- preview endpoint:
+- dataset preview:
   - `POST /export/data`
 
-## Архитектура
+## Comparison rules
 
-Ключевая цель — честное сравнение:
+The sample treats fairness as a feature:
 
-1. данные живут в SQLite;
-2. `ExportDatasetRepository` строит **одинаковый stream-plan** для обоих экспортёров;
-3. строки читаются из Prisma **батчами**, а не одним большим массивом;
-4. `seed` и `offset` по-прежнему определяют deterministic slice из БД;
-5. benchmark сравнивает именно разницу экспортёров, а не разницу источников данных.
+1. data lives in SQLite, not in exporter-specific in-memory sources;
+2. `ExportDatasetRepository` and `DataGeneratorService` build the same effective plan for all exporters;
+3. Prisma rows are read in batches;
+4. `seed`, `offset`, filters, and selected columns stay aligned across variants;
+5. benchmark output compares exporter behavior, not dataset drift.
 
-### Что реально stream'ится
+## Execution model
 
-#### ExcelJS
+### ExcelJS
 
-- используется `ExcelJS.stream.xlsx.WorkbookWriter`;
-- строки коммитятся по мере чтения батчей из Prisma;
-- `.xlsx` пишется сразу в `Writable` (HTTP response или temp file для benchmark);
-- готовый workbook **не собирается целиком в JS buffer** перед ответом.
+- uses `ExcelJS.stream.xlsx.WorkbookWriter`;
+- commits rows as batches arrive from Prisma;
+- writes `.xlsx` bytes directly to the target `Writable`;
+- is the only path in this sample that is true row-to-writable streaming.
 
-#### WASM
+### Go/WASM
 
-- JS-слой больше не собирает чанки в памяти перед отправкой;
-- Go/WASM bridge пишет `.xlsx` в кастомный writer, который отдает байты обратно в Node по мере `file.Write(...)`;
-- Node сразу пишет эти байты в `Writable` (HTTP response или temp file для benchmark);
-- итоговый `.xlsx` **не буферится целиком в Node/Nest перед ответом**.
+- keeps workbook state inside the Go/WASM runtime;
+- emits ZIP bytes back to Node during finalization callbacks;
+- Node writes those bytes directly to the HTTP response or temp file;
+- does not keep the final XLSX buffered in Node, but still accumulates workbook state inside WASM.
 
-### Что всё ещё не идеально
+### Rust/WASM
 
-- Excelize внутри Go/WASM всё ещё управляет собственной внутренней структурой workbook до финальной записи zip-потока; это лучше, чем буферить готовый файл ещё и в Node, но не магически делает zero-memory export.
-- WASM-ветка по-прежнему выполняется последовательно через очередь из-за глобального Go/WASM runtime state.
-- В unit-тестах используются buffer helper'ы, но они нужны только для валидации содержимого generated `.xlsx`, а не для production download path.
+- uses `rust_xlsxwriter` compiled to `wasm32-unknown-unknown` and wrapped with `wasm-bindgen`;
+- builds workbook state inside Rust/WASM and returns the final workbook bytes at finalize time;
+- Node writes the resulting `Uint8Array` into the destination `Writable` without an extra full
+  `Buffer.from(...)` copy;
+- is low-memory on the Node side compared with fully buffering the response in JS, but it is not
+  true XLSX streaming from WASM.
 
-## Prisma / SQLite setup
+## Toolchain and setup
+
+Install dependencies and prepare the SQLite database:
 
 ```bash
 bun install
@@ -58,52 +78,95 @@ bun run prisma:migrate
 bun run prisma:seed
 ```
 
-По умолчанию используется `DATABASE_URL="file:./prisma/dev.db"`.
+Default database URL:
 
-### Seed strategy
+```bash
+DATABASE_URL="file:./prisma/dev.db"
+```
 
-- таблица: `Employee`
-- размер seed dataset по умолчанию: **10_000** сотрудников
-- dataset строится детерминированно через общий генератор (`src/export/data/employee-generator.ts`)
-- seed пишет данные **батчами**, не собирая весь dataset в один большой JS-массив
-- batch insert по умолчанию: **1000** записей за итерацию
-- можно переопределить:
-  - `SEED_EMPLOYEE_COUNT`
-  - `SEED_DATASET_SEED`
-  - `SEED_BATCH_SIZE`
+### Seed configuration
 
-Пример большого batched seed:
+- table: `Employee`
+- default dataset size: `10_000`
+- deterministic generator: `src/export/data/employee-generator.ts`
+- batched insert seed path to avoid building one giant JS array
+- default seed batch size: `1000`
+
+Supported environment variables:
+
+- `SEED_EMPLOYEE_COUNT`
+- `SEED_DATASET_SEED`
+- `SEED_BATCH_SIZE`
+
+Example large seed run:
 
 ```bash
 SEED_EMPLOYEE_COUNT=200000 SEED_BATCH_SIZE=1000 bun run prisma:seed
 ```
 
-## WASM build
+## Build commands
 
-`excel-streamer/excel_bridge.wasm` и `excel-streamer/wasm_exec.js` — это **сгенерированные build-артефакты**. Они не должны храниться в git: их нужно собирать локально, в CI или на этапе деплоя.
+### Application build
 
-В окружениях, где Go не в `PATH`, сначала добавь его в `PATH` удобным для твоей системы способом, затем собери WASM:
+```bash
+bun run build
+```
+
+### Go/WASM build
+
+Generated Go WASM artifacts are local build outputs:
+
+- `excel-streamer/excel_bridge.wasm`
+- `excel-streamer/wasm_exec.js`
+
+Build them with Go available in `PATH`:
 
 ```bash
 export PATH="/path/to/go/bin:$PATH"
 bun run build:wasm
 ```
 
-## Запуск
+### Rust/WASM build
+
+Generated Rust WASM artifacts are local build outputs:
+
+- `rust-excel-streamer/pkg/`
+- `rust-excel-streamer/target/`
+
+Build them with Rust tooling available in `PATH`:
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+bun run build:rust-wasm
+```
+
+The script ensures:
+
+- `cargo` is available;
+- `wasm-bindgen-cli` is installed;
+- the `wasm32-unknown-unknown` target exists;
+- the Node-consumable wrapper is generated into `rust-excel-streamer/pkg/`.
+
+Rust-specific notes and tradeoffs are documented in `docs/rust-wasm-notes.md`.
+
+## Running the sample
 
 ```bash
 bun install
-export PATH="/path/to/go/bin:$PATH" # если нужен rebuild wasm
+export PATH="/path/to/go/bin:$PATH"
+export PATH="$HOME/.cargo/bin:$PATH"
 bun run prisma:generate
 bun run prisma:migrate
 bun run prisma:seed
+bun run build:wasm
+bun run build:rust-wasm
 bun run build
 bun run start:dev
 ```
 
-## Примеры
+## Route examples
 
-### Preview данных
+### Preview dataset
 
 ```bash
 curl -X POST http://localhost:3000/export/data \
@@ -111,7 +174,7 @@ curl -X POST http://localhost:3000/export/data \
   -d '{"limit":5,"seed":12345}'
 ```
 
-### ExcelJS export
+### ExcelJS download
 
 ```bash
 curl -X POST http://localhost:3000/export/exceljs/download \
@@ -120,16 +183,33 @@ curl -X POST http://localhost:3000/export/exceljs/download \
   --output exceljs.xlsx
 ```
 
-### WASM export
+### Go/WASM download
 
 ```bash
 curl -X POST http://localhost:3000/export/wasm/download \
   -H 'Content-Type: application/json' \
-  -d '{"limit":2000,"seed":12345,"batchSize":500,"fileName":"wasm.xlsx"}' \
-  --output wasm.xlsx
+  -d '{"limit":2000,"seed":12345,"batchSize":500,"fileName":"go-wasm.xlsx"}' \
+  --output go-wasm.xlsx
 ```
 
-### Benchmark comparison
+### Rust/WASM download
+
+```bash
+curl -X POST http://localhost:3000/export/rust-wasm/download \
+  -H 'Content-Type: application/json' \
+  -d '{"limit":2000,"seed":12345,"batchSize":500,"fileName":"rust-wasm.xlsx"}' \
+  --output rust-wasm.xlsx
+```
+
+### Status routes
+
+```bash
+curl http://localhost:3000/export/exceljs/health
+curl http://localhost:3000/export/wasm/status
+curl http://localhost:3000/export/rust-wasm/status
+```
+
+### Benchmark routes
 
 ```bash
 curl http://localhost:3000/export/benchmark/default
@@ -139,23 +219,61 @@ curl -X POST http://localhost:3000/export/benchmark \
   -d '{"limit":5000,"seed":42,"batchSize":500,"includeMemory":true}'
 ```
 
-### Scripted benchmark
+The benchmark response contains:
+
+- `request`
+- `exceljs`
+- `goWasm`
+- `rustWasm`
+- `deltas`
+- `diagnostics`
+
+`memoryDeltaBytes` fields are present only when `includeMemory=true`. Those values represent Node
+heap deltas, not full Go/Rust WASM linear-memory usage.
+
+## Verification commands
+
+Rust smoke test:
 
 ```bash
-bun run test:comparison
+bun run test:rust-wasm
 ```
 
-Скрипт ожидает поднятое приложение на `BASE_URL` (по умолчанию `http://localhost:3000`) и вызывает `POST /export/benchmark`.
-
-## Проверка локально
+Project verification:
 
 ```bash
-export PATH="/path/to/go/bin:$PATH" # если пересобираешь wasm
 bun run build:wasm
-bun run prisma:generate
-bun run prisma:migrate
-bun run prisma:seed
+bun run build:rust-wasm
 bun run build
+bun run lint
 bun run test
 bun run test:e2e
+```
+
+Live benchmark verification (`bun run start:prod` blocks, so use a second terminal or background the server):
+
+```bash
+# Terminal 1
+PORT=3000 bun run start:prod
+
+# Terminal 2
+BASE_URL=http://localhost:3000 bun run test:comparison
+```
+
+Or in one shell with the server in the background:
+
+```bash
+PORT=3000 bun run start:prod &
+BASE_URL=http://localhost:3000 bun run test:comparison
+```
+
+`bun run test:comparison` expects the app to already be running at `BASE_URL` and validates that
+the benchmark payload contains `exceljs`, `goWasm`, and `rustWasm`, all three row counts match,
+and the explicit delta keys are present.
+
+If Bun is unavailable in the shell but the app is already running, you can invoke the helper
+directly:
+
+```bash
+BASE_URL=http://localhost:3000 node test/export-comparison.js
 ```

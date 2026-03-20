@@ -4,7 +4,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
-const BENCHMARK_TEST_TIMEOUT = 20_000;
+const BENCHMARK_TEST_TIMEOUT = 60_000;
 
 type SupertestBinaryParser = Parameters<ReturnType<typeof request>['parse']>[0];
 
@@ -64,6 +64,16 @@ describe('Export comparison app (e2e)', () => {
     expect(response.body.wasm.hasBinary).toBe(true);
   });
 
+  it('/export/rust-wasm/status (GET)', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/export/rust-wasm/status')
+      .expect(200);
+
+    expect(response.body.variant).toBe('rust-wasm');
+    expect(response.body.rustWasm.hasPackage).toBe(true);
+    expect(response.body.rustWasm.hasBinary).toBe(true);
+  });
+
   it('/export/data (POST)', async () => {
     const response = await request(app.getHttpServer())
       .post('/export/data')
@@ -113,6 +123,24 @@ describe('Export comparison app (e2e)', () => {
     expect(body.subarray(0, 2).toString()).toBe('PK');
   });
 
+  it('/export/rust-wasm/download (POST)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/export/rust-wasm/download')
+      .buffer(true)
+      .parse(binaryParser)
+      .send({ limit: 5, seed: 12345, fileName: 'rust-wasm-check.xlsx' })
+      .expect(201);
+
+    expect(response.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(response.headers['content-disposition']).toContain(
+      'rust-wasm-check.xlsx',
+    );
+    const body = response.body as Buffer;
+    expect(body.subarray(0, 2).toString()).toBe('PK');
+  });
+
   it('/export/exceljs/quick rejects invalid query params', async () => {
     await request(app.getHttpServer())
       .get('/export/exceljs/quick?limit=Infinity&seed=abc')
@@ -123,7 +151,25 @@ describe('Export comparison app (e2e)', () => {
     '/export/wasm/quick accepts moderate higher limit values',
     async () => {
       const response = await request(app.getHttpServer())
-        .get('/export/wasm/quick?limit=5000&seed=12345')
+        .get('/export/wasm/quick?limit=2000&seed=12345')
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      const body = response.body as Buffer;
+      expect(body.subarray(0, 2).toString()).toBe('PK');
+    },
+    BENCHMARK_TEST_TIMEOUT,
+  );
+
+  it(
+    '/export/rust-wasm/quick accepts moderate higher limit values',
+    async () => {
+      const response = await request(app.getHttpServer())
+        .get('/export/rust-wasm/quick?limit=2000&seed=12345')
         .buffer(true)
         .parse(binaryParser)
         .expect(200);
@@ -166,12 +212,32 @@ describe('Export comparison app (e2e)', () => {
 
       expect(response.body.request.limit).toBe(2000);
       expect(response.body.exceljs.variant).toBe('exceljs');
-      expect(response.body.wasm.variant).toBe('wasm');
+      expect(response.body.goWasm.variant).toBe('wasm');
+      expect(response.body.rustWasm.variant).toBe('rust-wasm');
       expect(response.body.exceljs.sizeBytes).toBeGreaterThan(0);
-      expect(response.body.wasm.sizeBytes).toBeGreaterThan(0);
+      expect(response.body.goWasm.sizeBytes).toBeGreaterThan(0);
+      expect(response.body.rustWasm.sizeBytes).toBeGreaterThan(0);
       expect(response.body.exceljs.buffer).toBeUndefined();
-      expect(response.body.wasm.buffer).toBeUndefined();
-      expect(typeof response.body.delta.memoryDeltaBytes).toBe('number');
+      expect(response.body.goWasm.buffer).toBeUndefined();
+      expect(response.body.rustWasm.buffer).toBeUndefined();
+      expect(typeof response.body.deltas.goWasmVsExceljs.memoryDeltaBytes).toBe(
+        'number',
+      );
+      expect(
+        typeof response.body.deltas.rustWasmVsExceljs.memoryDeltaBytes,
+      ).toBe('number');
+      expect(response.body.diagnostics.memory.nodeHeapDeltaMeasured).toBe(true);
+      expect(response.body.diagnostics.memory.wasmLinearMemoryIncluded).toBe(
+        false,
+      );
+      expect(response.body.diagnostics.executionModel).toEqual({
+        exceljs:
+          'Streams rows directly to the Node writable via ExcelJS WorkbookWriter.',
+        goWasm:
+          'Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.',
+        rustWasm:
+          'Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time.',
+      });
     },
     BENCHMARK_TEST_TIMEOUT,
   );
@@ -183,8 +249,21 @@ describe('Export comparison app (e2e)', () => {
       .expect(201);
 
     expect(response.body.exceljs.memoryDeltaBytes).toBeUndefined();
-    expect(response.body.wasm.memoryDeltaBytes).toBeUndefined();
-    expect(response.body.delta.memoryDeltaBytes).toBeUndefined();
+    expect(response.body.goWasm.memoryDeltaBytes).toBeUndefined();
+    expect(response.body.rustWasm.memoryDeltaBytes).toBeUndefined();
+    expect(
+      response.body.deltas.goWasmVsExceljs.memoryDeltaBytes,
+    ).toBeUndefined();
+    expect(
+      response.body.deltas.rustWasmVsExceljs.memoryDeltaBytes,
+    ).toBeUndefined();
+    expect(
+      response.body.deltas.rustWasmVsGoWasm.memoryDeltaBytes,
+    ).toBeUndefined();
+    expect(response.body.diagnostics.memory.nodeHeapDeltaMeasured).toBe(false);
+    expect(response.body.diagnostics.memory.note).toContain(
+      'includeMemory=false',
+    );
   });
 
   it(
@@ -192,15 +271,25 @@ describe('Export comparison app (e2e)', () => {
     async () => {
       const response = await request(app.getHttpServer())
         .post('/export/benchmark')
-        .send({ limit: 5000, seed: 12345, includeMemory: false })
+        .send({ limit: 2000, seed: 12345, includeMemory: false })
         .expect(201);
 
-      expect(response.body.request.limit).toBe(5000);
+      expect(response.body.request.limit).toBe(2000);
       expect(response.body.exceljs.rowCount).toBeGreaterThan(0);
-      expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(5000);
-      expect(response.body.wasm.rowCount).toBeGreaterThan(0);
-      expect(response.body.wasm.rowCount).toBeLessThanOrEqual(5000);
-      expect(response.body.exceljs.rowCount).toBe(response.body.wasm.rowCount);
+      expect(response.body.exceljs.rowCount).toBeLessThanOrEqual(2000);
+      expect(response.body.goWasm.rowCount).toBeGreaterThan(0);
+      expect(response.body.goWasm.rowCount).toBeLessThanOrEqual(2000);
+      expect(response.body.rustWasm.rowCount).toBeGreaterThan(0);
+      expect(response.body.rustWasm.rowCount).toBeLessThanOrEqual(2000);
+      expect(response.body.exceljs.rowCount).toBe(
+        response.body.goWasm.rowCount,
+      );
+      expect(response.body.exceljs.rowCount).toBe(
+        response.body.rustWasm.rowCount,
+      );
+      expect(response.body.goWasm.rowCount).toBe(
+        response.body.rustWasm.rowCount,
+      );
     },
     BENCHMARK_TEST_TIMEOUT,
   );

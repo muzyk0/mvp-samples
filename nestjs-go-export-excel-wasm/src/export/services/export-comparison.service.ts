@@ -10,12 +10,15 @@ import {
   ExportRequestDto,
 } from '../dto/export-request.dto';
 import {
+  ExportBenchmarkDelta,
   ExportBenchmarkResult,
   ExportExecutionResult,
   ExportExecutionSummary,
+  ExportVariant,
 } from '../interfaces/export-data.interface';
 import { DataGeneratorService } from './data-generator.service';
 import { ExceljsExportService } from './exceljs-export.service';
+import { RustWasmExcelService } from './rust-wasm-excel.service';
 import { StreamResponseService } from './stream-response.service';
 import { WasmExcelService } from './wasm-excel.service';
 
@@ -25,6 +28,7 @@ export class ExportComparisonService {
     private readonly dataGeneratorService: DataGeneratorService,
     private readonly exceljsExportService: ExceljsExportService,
     private readonly wasmExcelService: WasmExcelService,
+    private readonly rustWasmExcelService: RustWasmExcelService,
     private readonly streamResponseService: StreamResponseService,
   ) {}
 
@@ -73,6 +77,29 @@ export class ExportComparisonService {
     );
   }
 
+  async streamRustWasmToResponse(
+    options: ExportRequestDto,
+    response: Response,
+  ): Promise<void> {
+    const fileName = options.fileName ?? 'rust-wasm-export.xlsx';
+    const plan = await this.dataGeneratorService.createStreamPlan(options);
+    this.streamResponseService.prepareDownload(
+      response,
+      fileName,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
+    await this.rustWasmExcelService.exportPlanToWritable(
+      plan,
+      this.dataGeneratorService.streamExportData(plan),
+      {
+        writable: response,
+        fileName,
+        sheetName: options.sheetName,
+      },
+    );
+  }
+
   async exportWithExcelJs(
     options: ExportRequestDto,
   ): Promise<ExportExecutionResult & { buffer: Buffer }> {
@@ -101,6 +128,21 @@ export class ExportComparisonService {
     return { ...result, buffer };
   }
 
+  async exportWithRustWasm(
+    options: ExportRequestDto,
+  ): Promise<ExportExecutionResult & { buffer: Buffer }> {
+    const plan = await this.dataGeneratorService.createStreamPlan(options);
+    const { result, buffer } =
+      await this.rustWasmExcelService.exportPlanToBuffer(
+        plan,
+        this.dataGeneratorService.streamExportData(plan),
+        options.fileName ?? 'rust-wasm-export.xlsx',
+        options.sheetName,
+      );
+
+    return { ...result, buffer };
+  }
+
   async benchmark(
     options: BenchmarkRequestDto,
   ): Promise<ExportBenchmarkResult> {
@@ -110,34 +152,61 @@ export class ExportComparisonService {
       plan,
       options,
     );
-    const wasm = await this.exportVariantToTempFile('wasm', plan, options);
+    const goWasm = await this.exportVariantToTempFile('wasm', plan, options);
+    const rustWasm = await this.exportVariantToTempFile(
+      'rust-wasm',
+      plan,
+      options,
+    );
     const includeMemory = options.includeMemory ?? true;
     const exceljsSummary = this.toBenchmarkSummary(exceljs, includeMemory);
-    const wasmSummary = this.toBenchmarkSummary(wasm, includeMemory);
+    const goWasmSummary = this.toBenchmarkSummary(goWasm, includeMemory);
+    const rustWasmSummary = this.toBenchmarkSummary(rustWasm, includeMemory);
 
     return {
       request: {
-        limit: plan.effectiveLimit,
+        limit: options.limit ?? 1000,
         seed: plan.seed,
         columns: plan.columns,
       },
       exceljs: exceljsSummary,
-      wasm: wasmSummary,
-      delta: {
-        durationMs: Number((wasm.durationMs - exceljs.durationMs).toFixed(2)),
-        sizeBytes: wasm.sizeBytes - exceljs.sizeBytes,
-        memoryDeltaBytes: includeMemory
-          ? typeof wasm.memoryDeltaBytes === 'number' &&
-            typeof exceljs.memoryDeltaBytes === 'number'
-            ? wasm.memoryDeltaBytes - exceljs.memoryDeltaBytes
-            : undefined
-          : undefined,
+      goWasm: goWasmSummary,
+      rustWasm: rustWasmSummary,
+      deltas: {
+        goWasmVsExceljs: this.toBenchmarkDelta(goWasm, exceljs, includeMemory),
+        rustWasmVsExceljs: this.toBenchmarkDelta(
+          rustWasm,
+          exceljs,
+          includeMemory,
+        ),
+        rustWasmVsGoWasm: this.toBenchmarkDelta(
+          rustWasm,
+          goWasm,
+          includeMemory,
+        ),
+      },
+      diagnostics: {
+        memory: {
+          nodeHeapDeltaMeasured: includeMemory,
+          wasmLinearMemoryIncluded: false,
+          note: includeMemory
+            ? 'memoryDeltaBytes reports Node heap deltas only; Go/Rust WASM linear memory is not instrumented in this benchmark.'
+            : 'memoryDeltaBytes fields are omitted because includeMemory=false; WASM linear memory is not instrumented in this benchmark.',
+        },
+        executionModel: {
+          exceljs:
+            'Streams rows directly to the Node writable via ExcelJS WorkbookWriter.',
+          goWasm:
+            'Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.',
+          rustWasm:
+            'Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time.',
+        },
       },
     };
   }
 
   private async exportVariantToTempFile(
-    variant: 'exceljs' | 'wasm',
+    variant: ExportVariant,
     plan: Awaited<ReturnType<DataGeneratorService['createStreamPlan']>>,
     options: ExportRequestDto,
   ): Promise<ExportExecutionResult> {
@@ -159,14 +228,24 @@ export class ExportComparisonService {
                 sheetName: options.sheetName,
               },
             )
-          : await this.wasmExcelService.exportPlanToWritable(
-              plan,
-              this.dataGeneratorService.streamExportData(plan),
-              {
-                writable,
-                fileName: `benchmark-wasm-${plan.seed}.xlsx`,
-              },
-            );
+          : variant === 'wasm'
+            ? await this.wasmExcelService.exportPlanToWritable(
+                plan,
+                this.dataGeneratorService.streamExportData(plan),
+                {
+                  writable,
+                  fileName: `benchmark-wasm-${plan.seed}.xlsx`,
+                },
+              )
+            : await this.rustWasmExcelService.exportPlanToWritable(
+                plan,
+                this.dataGeneratorService.streamExportData(plan),
+                {
+                  writable,
+                  fileName: `benchmark-rust-wasm-${plan.seed}.xlsx`,
+                  sheetName: options.sheetName,
+                },
+              );
 
       if (!writable.writableFinished) {
         await finished(writable);
@@ -197,6 +276,23 @@ export class ExportComparisonService {
       ...(includeMemory && typeof result.memoryDeltaBytes === 'number'
         ? { memoryDeltaBytes: result.memoryDeltaBytes }
         : { memoryDeltaBytes: undefined }),
+    };
+  }
+
+  private toBenchmarkDelta(
+    current: ExportExecutionResult,
+    baseline: ExportExecutionResult,
+    includeMemory: boolean,
+  ): ExportBenchmarkDelta {
+    return {
+      durationMs: Number((current.durationMs - baseline.durationMs).toFixed(2)),
+      sizeBytes: current.sizeBytes - baseline.sizeBytes,
+      memoryDeltaBytes: includeMemory
+        ? typeof current.memoryDeltaBytes === 'number' &&
+          typeof baseline.memoryDeltaBytes === 'number'
+          ? current.memoryDeltaBytes - baseline.memoryDeltaBytes
+          : undefined
+        : undefined,
     };
   }
 
