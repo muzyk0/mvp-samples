@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-04-13T07:48:36.013Z",
+  "generatedAt": "2026-04-20T07:51:04.702Z",
   "overview": {
-    "total": 5,
+    "total": 6,
     "byLane": {
-      "continuous": 5
+      "continuous": 6
     },
     "byLaneEnvironment": {
-      "continuous::github-hosted-linux-x64": 5
+      "continuous::github-hosted-linux-x64": 6
     }
   },
   "latestViews": [
@@ -16,8 +16,8 @@
       "environment": "github-hosted-linux-x64",
       "scenarioId": "default-benchmark",
       "scenarioLabel": "POST /export/benchmark default comparison",
-      "latestRunPath": "runs/continuous/github-hosted-linux-x64/2026/04/2026-04-13T07-48-32-415Z-571c1c4.json",
-      "collectedAt": "2026-04-13T07:48:32.415Z",
+      "latestRunPath": "runs/continuous/github-hosted-linux-x64/2026/04/2026-04-20T07-51-00-700Z-571c1c4.json",
+      "collectedAt": "2026-04-20T07:51:00.700Z",
       "git": {
         "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
         "shortSha": "571c1c4",
@@ -65,8 +65,8 @@
         "platform": "linux",
         "arch": "x64",
         "cpuCount": 4,
-        "cpuModel": "AMD EPYC 9V74 80-Core Processor",
-        "totalMemoryBytes": 16766431232
+        "cpuModel": "AMD EPYC 7763 64-Core Processor",
+        "totalMemoryBytes": 16766427136
       },
       "toolchain": {
         "nodeVersion": "v22.14.0",
@@ -92,9 +92,9 @@
           "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           "fileName": "benchmark-rust-wasm-12345.xlsx",
           "sampleCount": 3,
-          "avgDurationMs": 86.383,
-          "avgSizeBytes": 93824.667,
-          "avgMemoryDeltaBytes": 3230602.667,
+          "avgDurationMs": 89.903,
+          "avgSizeBytes": 93824,
+          "avgMemoryDeltaBytes": 3285781.333,
           "rowCount": 2000,
           "columnCount": 7,
           "durationDeltaMsFromFastest": 0
@@ -108,12 +108,12 @@
           "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           "fileName": "benchmark-exceljs-12345.xlsx",
           "sampleCount": 3,
-          "avgDurationMs": 103.453,
-          "avgSizeBytes": 110756,
-          "avgMemoryDeltaBytes": 6500584,
+          "avgDurationMs": 122.653,
+          "avgSizeBytes": 110755,
+          "avgMemoryDeltaBytes": 6472120,
           "rowCount": 2000,
           "columnCount": 7,
-          "durationDeltaMsFromFastest": 17.07
+          "durationDeltaMsFromFastest": 32.75
         },
         {
           "id": "goWasm",
@@ -124,12 +124,12 @@
           "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           "fileName": "benchmark-wasm-12345.xlsx",
           "sampleCount": 3,
-          "avgDurationMs": 242.417,
+          "avgDurationMs": 274.027,
           "avgSizeBytes": 103266,
-          "avgMemoryDeltaBytes": 1082818.667,
+          "avgMemoryDeltaBytes": 1104800,
           "rowCount": 2000,
           "columnCount": 7,
-          "durationDeltaMsFromFastest": 156.034
+          "durationDeltaMsFromFastest": 184.124
         }
       ]
     }
@@ -141,7 +141,7 @@
       "environment": "github-hosted-linux-x64",
       "scenarioId": "default-benchmark",
       "scenarioLabel": "POST /export/benchmark default comparison",
-      "latestRunPath": "runs/continuous/github-hosted-linux-x64/2026/04/2026-04-13T07-48-32-415Z-571c1c4.json",
+      "latestRunPath": "runs/continuous/github-hosted-linux-x64/2026/04/2026-04-20T07-51-00-700Z-571c1c4.json",
       "implementations": [
         {
           "id": "exceljs",
@@ -191,6 +191,15 @@
               "durationMs": 103.453,
               "sizeBytes": 110756,
               "memoryDeltaBytes": 6500584
+            },
+            {
+              "collectedAt": "2026-04-20T07:51:00.700Z",
+              "runPath": "runs/continuous/github-hosted-linux-x64/2026/04/2026-04-20T07-51-00-700Z-571c1c4.json",
+              "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+              "shortSha": "571c1c4",
+              "durationMs": 122.653,
+              "sizeBytes": 110755,
+              "memoryDeltaBytes": 6472120
             }
           ]
         },
@@ -242,6 +251,15 @@
               "durationMs": 242.417,
               "sizeBytes": 103266,
               "memoryDeltaBytes": 1082818.667
+            },
+            {
+              "collectedAt": "2026-04-20T07:51:00.700Z",
+              "runPath": "runs/continuous/github-hosted-linux-x64/2026/04/2026-04-20T07-51-00-700Z-571c1c4.json",
+              "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+              "shortSha": "571c1c4",
+              "durationMs": 274.027,
+              "sizeBytes": 103266,
+              "memoryDeltaBytes": 1104800
             }
           ]
         },
@@ -293,6 +311,15 @@
               "durationMs": 86.383,
               "sizeBytes": 93824.667,
               "memoryDeltaBytes": 3230602.667
+            },
+            {
+              "collectedAt": "2026-04-20T07:51:00.700Z",
+              "runPath": "runs/continuous/github-hosted-linux-x64/2026/04/2026-04-20T07-51-00-700Z-571c1c4.json",
+              "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+              "shortSha": "571c1c4",
+              "durationMs": 89.903,
+              "sizeBytes": 93824,
+              "memoryDeltaBytes": 3285781.333
             }
           ]
         }
