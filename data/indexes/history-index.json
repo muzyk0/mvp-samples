@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-05-18T09:38:22.751Z",
+  "generatedAt": "2026-05-25T09:46:51.466Z",
   "runs": {
-    "total": 10,
+    "total": 11,
     "byLane": {
-      "continuous": 10
+      "continuous": 11
     },
     "byLaneEnvironment": {
-      "continuous::github-hosted-linux-x64": 10
+      "continuous::github-hosted-linux-x64": 11
     }
   },
   "latestRuns": {
     "continuous": {
-      "github-hosted-linux-x64": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-18T09-38-19-106Z-571c1c4.json"
+      "github-hosted-linux-x64": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json"
     }
   },
   "runSummaries": {
@@ -1184,6 +1184,123 @@
           "columnCount": 7
         }
       }
+    },
+    "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json": {
+      "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+      "lane": "continuous",
+      "environment": "github-hosted-linux-x64",
+      "collectedAt": "2026-05-25T09:46:47.829Z",
+      "git": {
+        "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+        "shortSha": "571c1c4",
+        "branch": "master",
+        "isDirty": true
+      },
+      "profile": {
+        "id": "continuous-default",
+        "label": "Continuous default benchmark",
+        "path": "/home/runner/work/mvp-samples/mvp-samples/benchmarks/profiles/continuous-default.json",
+        "environmentLabel": "github-hosted-linux-x64",
+        "description": "Pinned benchmark profile for automated continuous collection on shared GitHub-hosted runners.",
+        "expectations": [
+          "Build the Nest application before running the collector.",
+          "Keep the benchmark request on POST /export/benchmark for fair dataset reuse across implementations.",
+          "Prefer a clean git worktree for publishable runs."
+        ]
+      },
+      "scenario": {
+        "id": "default-benchmark",
+        "label": "POST /export/benchmark default comparison",
+        "sampleCount": 3,
+        "warmupCount": 1,
+        "request": {
+          "limit": 2000,
+          "seed": 12345,
+          "columns": [
+            "ID",
+            "Имя",
+            "Отдел",
+            "Должность",
+            "Зарплата (итоговая)",
+            "Дата приема на работу",
+            "Активен"
+          ],
+          "fileName": "benchmark.xlsx",
+          "sheetName": "Data",
+          "includeHeaders": true,
+          "includeMemory": true
+        }
+      },
+      "runner": {
+        "environmentLabel": "github-hosted-linux-x64",
+        "hostname": "redacted",
+        "platform": "linux",
+        "arch": "x64",
+        "cpuCount": 4,
+        "cpuModel": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+        "totalMemoryBytes": 16769724416
+      },
+      "toolchain": {
+        "nodeVersion": "v22.14.0",
+        "npmVersion": "10.9.2",
+        "bunVersion": "1.3.10",
+        "goVersion": "go version go1.25.5 linux/amd64",
+        "rustVersion": "rustc 1.90.0 (1159e78c4 2025-09-14)"
+      },
+      "diagnostics": {
+        "memory": {
+          "nodeHeapDeltaMeasured": true,
+          "wasmLinearMemoryIncluded": false,
+          "note": "memoryDeltaBytes reports Node heap deltas only; Go/Rust WASM linear memory is not instrumented in this benchmark."
+        }
+      },
+      "implementations": {
+        "exceljs": {
+          "id": "exceljs",
+          "label": "ExcelJS",
+          "sourceKey": "exceljs",
+          "variant": "exceljs",
+          "executionModel": "Streams rows directly to the Node writable via ExcelJS WorkbookWriter.",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "fileName": "benchmark-exceljs-12345.xlsx",
+          "sampleCount": 3,
+          "avgDurationMs": 106.187,
+          "avgSizeBytes": 110755.333,
+          "avgMemoryDeltaBytes": 6498989.333,
+          "rowCount": 2000,
+          "columnCount": 7
+        },
+        "goWasm": {
+          "id": "goWasm",
+          "label": "Go/WASM",
+          "sourceKey": "goWasm",
+          "variant": "wasm",
+          "executionModel": "Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "fileName": "benchmark-wasm-12345.xlsx",
+          "sampleCount": 3,
+          "avgDurationMs": 248.46,
+          "avgSizeBytes": 103266,
+          "avgMemoryDeltaBytes": 1082949.333,
+          "rowCount": 2000,
+          "columnCount": 7
+        },
+        "rustWasm": {
+          "id": "rustWasm",
+          "label": "Rust/WASM",
+          "sourceKey": "rustWasm",
+          "variant": "rust-wasm",
+          "executionModel": "Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time.",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "fileName": "benchmark-rust-wasm-12345.xlsx",
+          "sampleCount": 3,
+          "avgDurationMs": 90.747,
+          "avgSizeBytes": 93824,
+          "avgMemoryDeltaBytes": 3201752,
+          "rowCount": 2000,
+          "columnCount": 7
+        }
+      }
     }
   },
   "scenarios": {
@@ -1192,7 +1309,7 @@
       "environment": "github-hosted-linux-x64",
       "scenarioId": "default-benchmark",
       "scenarioLabel": "POST /export/benchmark default comparison",
-      "latestRunPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-18T09-38-19-106Z-571c1c4.json",
+      "latestRunPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
       "points": [
         {
           "collectedAt": "2026-03-20T13:12:47.648Z",
@@ -2453,6 +2570,132 @@
           "rowCount": 2000,
           "columnCount": 7,
           "memoryDeltaBytes": 2881440
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "exceljs",
+          "label": "ExcelJS",
+          "durationMs": 120.17,
+          "sizeBytes": 110756,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 95824
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "exceljs",
+          "label": "ExcelJS",
+          "durationMs": 104.16,
+          "sizeBytes": 110755,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 10970768
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "exceljs",
+          "label": "ExcelJS",
+          "durationMs": 94.23,
+          "sizeBytes": 110755,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 8430376
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "goWasm",
+          "label": "Go/WASM",
+          "durationMs": 263.96,
+          "sizeBytes": 103266,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 0
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "goWasm",
+          "label": "Go/WASM",
+          "durationMs": 236.16,
+          "sizeBytes": 103266,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 3248848
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "goWasm",
+          "label": "Go/WASM",
+          "durationMs": 245.26,
+          "sizeBytes": 103266,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 0
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "rustWasm",
+          "label": "Rust/WASM",
+          "durationMs": 94.17,
+          "sizeBytes": 93824,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 2834528
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "rustWasm",
+          "label": "Rust/WASM",
+          "durationMs": 90.08,
+          "sizeBytes": 93824,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 3858600
+        },
+        {
+          "collectedAt": "2026-05-25T09:46:47.829Z",
+          "runPath": "runs/continuous/github-hosted-linux-x64/2026/05/2026-05-25T09-46-47-829Z-571c1c4.json",
+          "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+          "shortSha": "571c1c4",
+          "profileId": "continuous-default",
+          "implementationId": "rustWasm",
+          "label": "Rust/WASM",
+          "durationMs": 87.99,
+          "sizeBytes": 93824,
+          "rowCount": 2000,
+          "columnCount": 7,
+          "memoryDeltaBytes": 2912128
         }
       ]
     }
