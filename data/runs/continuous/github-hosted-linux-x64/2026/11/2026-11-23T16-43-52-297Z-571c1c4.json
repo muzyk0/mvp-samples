@@ -1,0 +1,402 @@
+{
+  "schemaVersion": "1.0.0",
+  "lane": "continuous",
+  "collectedAt": "2026-11-23T16:43:52.297Z",
+  "profile": {
+    "id": "continuous-default",
+    "label": "Continuous default benchmark",
+    "path": "/home/runner/work/mvp-samples/mvp-samples/benchmarks/profiles/continuous-default.json",
+    "environmentLabel": "github-hosted-linux-x64",
+    "description": "Pinned benchmark profile for automated continuous collection on shared GitHub-hosted runners.",
+    "expectations": [
+      "Build the Nest application before running the collector.",
+      "Keep the benchmark request on POST /export/benchmark for fair dataset reuse across implementations.",
+      "Prefer a clean git worktree for publishable runs."
+    ]
+  },
+  "source": {
+    "endpoint": "/export/benchmark",
+    "method": "POST",
+    "baseUrl": "http://127.0.0.1:3100"
+  },
+  "git": {
+    "commitSha": "571c1c427affc3d4fb03d56f0c9280d7fa98b304",
+    "shortSha": "571c1c4",
+    "branch": "master",
+    "isDirty": true
+  },
+  "runner": {
+    "environmentLabel": "github-hosted-linux-x64",
+    "hostname": "redacted",
+    "platform": "linux",
+    "arch": "x64",
+    "cpuCount": 4,
+    "cpuModel": "Intel(R) Xeon(R) 6975P-C",
+    "totalMemoryBytes": 16464302080
+  },
+  "toolchain": {
+    "nodeVersion": "v22.14.0",
+    "npmVersion": "10.9.2",
+    "bunVersion": "1.3.10",
+    "goVersion": "go version go1.25.5 linux/amd64",
+    "rustVersion": "rustc 1.90.0 (1159e78c4 2025-09-14)"
+  },
+  "scenario": {
+    "id": "default-benchmark",
+    "label": "POST /export/benchmark default comparison",
+    "sampleCount": 3,
+    "warmupCount": 1,
+    "request": {
+      "limit": 2000,
+      "seed": 12345,
+      "columns": [
+        "ID",
+        "Имя",
+        "Отдел",
+        "Должность",
+        "Зарплата (итоговая)",
+        "Дата приема на работу",
+        "Активен"
+      ],
+      "fileName": "benchmark.xlsx",
+      "sheetName": "Data",
+      "includeHeaders": true,
+      "includeMemory": true
+    }
+  },
+  "samples": [
+    {
+      "sampleIndex": 1,
+      "collectedAt": "2026-11-23T16:43:52.297Z",
+      "request": {
+        "limit": 2000,
+        "seed": 12345,
+        "columns": [
+          "ID",
+          "Имя",
+          "Отдел",
+          "Должность",
+          "Зарплата (итоговая)",
+          "Дата приема на работу",
+          "Активен"
+        ]
+      },
+      "implementations": [
+        {
+          "id": "exceljs",
+          "label": "ExcelJS",
+          "sourceKey": "exceljs",
+          "variant": "exceljs",
+          "executionModel": "Streams rows directly to the Node writable via ExcelJS WorkbookWriter.",
+          "metrics": {
+            "durationMs": 82.27,
+            "sizeBytes": 110756,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 10678072
+          },
+          "fileName": "benchmark-exceljs-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        {
+          "id": "goWasm",
+          "label": "Go/WASM",
+          "sourceKey": "goWasm",
+          "variant": "wasm",
+          "executionModel": "Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.",
+          "metrics": {
+            "durationMs": 185.26,
+            "sizeBytes": 103266,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 0
+          },
+          "fileName": "benchmark-wasm-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        {
+          "id": "rustWasm",
+          "label": "Rust/WASM",
+          "sourceKey": "rustWasm",
+          "variant": "rust-wasm",
+          "executionModel": "Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time.",
+          "metrics": {
+            "durationMs": 62.88,
+            "sizeBytes": 93824,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 2981864
+          },
+          "fileName": "benchmark-rust-wasm-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+      ],
+      "comparisons": [
+        {
+          "id": "goWasm-vs-exceljs",
+          "baselineImplementationId": "exceljs",
+          "contenderImplementationId": "goWasm",
+          "metrics": {
+            "durationMsDelta": 102.99,
+            "sizeBytesDelta": -7490,
+            "memoryDeltaBytesDelta": -10678072
+          }
+        },
+        {
+          "id": "rustWasm-vs-exceljs",
+          "baselineImplementationId": "exceljs",
+          "contenderImplementationId": "rustWasm",
+          "metrics": {
+            "durationMsDelta": -19.39,
+            "sizeBytesDelta": -16932,
+            "memoryDeltaBytesDelta": -7696208
+          }
+        },
+        {
+          "id": "rustWasm-vs-goWasm",
+          "baselineImplementationId": "goWasm",
+          "contenderImplementationId": "rustWasm",
+          "metrics": {
+            "durationMsDelta": -122.38,
+            "sizeBytesDelta": -9442,
+            "memoryDeltaBytesDelta": 2981864
+          }
+        }
+      ],
+      "diagnostics": {
+        "memory": {
+          "nodeHeapDeltaMeasured": true,
+          "wasmLinearMemoryIncluded": false,
+          "note": "memoryDeltaBytes reports Node heap deltas only; Go/Rust WASM linear memory is not instrumented in this benchmark."
+        },
+        "executionModel": {
+          "exceljs": "Streams rows directly to the Node writable via ExcelJS WorkbookWriter.",
+          "goWasm": "Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.",
+          "rustWasm": "Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time."
+        }
+      }
+    },
+    {
+      "sampleIndex": 2,
+      "collectedAt": "2026-11-23T16:43:52.297Z",
+      "request": {
+        "limit": 2000,
+        "seed": 12345,
+        "columns": [
+          "ID",
+          "Имя",
+          "Отдел",
+          "Должность",
+          "Зарплата (итоговая)",
+          "Дата приема на работу",
+          "Активен"
+        ]
+      },
+      "implementations": [
+        {
+          "id": "exceljs",
+          "label": "ExcelJS",
+          "sourceKey": "exceljs",
+          "variant": "exceljs",
+          "executionModel": "Streams rows directly to the Node writable via ExcelJS WorkbookWriter.",
+          "metrics": {
+            "durationMs": 65.1,
+            "sizeBytes": 110756,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 10738488
+          },
+          "fileName": "benchmark-exceljs-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        {
+          "id": "goWasm",
+          "label": "Go/WASM",
+          "sourceKey": "goWasm",
+          "variant": "wasm",
+          "executionModel": "Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.",
+          "metrics": {
+            "durationMs": 171.16,
+            "sizeBytes": 103266,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 3333656
+          },
+          "fileName": "benchmark-wasm-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        {
+          "id": "rustWasm",
+          "label": "Rust/WASM",
+          "sourceKey": "rustWasm",
+          "variant": "rust-wasm",
+          "executionModel": "Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time.",
+          "metrics": {
+            "durationMs": 61.11,
+            "sizeBytes": 93824,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 3885856
+          },
+          "fileName": "benchmark-rust-wasm-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+      ],
+      "comparisons": [
+        {
+          "id": "goWasm-vs-exceljs",
+          "baselineImplementationId": "exceljs",
+          "contenderImplementationId": "goWasm",
+          "metrics": {
+            "durationMsDelta": 106.06,
+            "sizeBytesDelta": -7490,
+            "memoryDeltaBytesDelta": -7404832
+          }
+        },
+        {
+          "id": "rustWasm-vs-exceljs",
+          "baselineImplementationId": "exceljs",
+          "contenderImplementationId": "rustWasm",
+          "metrics": {
+            "durationMsDelta": -3.99,
+            "sizeBytesDelta": -16932,
+            "memoryDeltaBytesDelta": -6852632
+          }
+        },
+        {
+          "id": "rustWasm-vs-goWasm",
+          "baselineImplementationId": "goWasm",
+          "contenderImplementationId": "rustWasm",
+          "metrics": {
+            "durationMsDelta": -110.05,
+            "sizeBytesDelta": -9442,
+            "memoryDeltaBytesDelta": 552200
+          }
+        }
+      ],
+      "diagnostics": {
+        "memory": {
+          "nodeHeapDeltaMeasured": true,
+          "wasmLinearMemoryIncluded": false,
+          "note": "memoryDeltaBytes reports Node heap deltas only; Go/Rust WASM linear memory is not instrumented in this benchmark."
+        },
+        "executionModel": {
+          "exceljs": "Streams rows directly to the Node writable via ExcelJS WorkbookWriter.",
+          "goWasm": "Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.",
+          "rustWasm": "Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time."
+        }
+      }
+    },
+    {
+      "sampleIndex": 3,
+      "collectedAt": "2026-11-23T16:43:52.297Z",
+      "request": {
+        "limit": 2000,
+        "seed": 12345,
+        "columns": [
+          "ID",
+          "Имя",
+          "Отдел",
+          "Должность",
+          "Зарплата (итоговая)",
+          "Дата приема на работу",
+          "Активен"
+        ]
+      },
+      "implementations": [
+        {
+          "id": "exceljs",
+          "label": "ExcelJS",
+          "sourceKey": "exceljs",
+          "variant": "exceljs",
+          "executionModel": "Streams rows directly to the Node writable via ExcelJS WorkbookWriter.",
+          "metrics": {
+            "durationMs": 60.29,
+            "sizeBytes": 110756,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 8490656
+          },
+          "fileName": "benchmark-exceljs-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        {
+          "id": "goWasm",
+          "label": "Go/WASM",
+          "sourceKey": "goWasm",
+          "variant": "wasm",
+          "executionModel": "Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.",
+          "metrics": {
+            "durationMs": 177.15,
+            "sizeBytes": 103266,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 0
+          },
+          "fileName": "benchmark-wasm-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        },
+        {
+          "id": "rustWasm",
+          "label": "Rust/WASM",
+          "sourceKey": "rustWasm",
+          "variant": "rust-wasm",
+          "executionModel": "Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time.",
+          "metrics": {
+            "durationMs": 62.06,
+            "sizeBytes": 93824,
+            "rowCount": 2000,
+            "columnCount": 7,
+            "memoryDeltaBytes": 2801080
+          },
+          "fileName": "benchmark-rust-wasm-12345.xlsx",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+      ],
+      "comparisons": [
+        {
+          "id": "goWasm-vs-exceljs",
+          "baselineImplementationId": "exceljs",
+          "contenderImplementationId": "goWasm",
+          "metrics": {
+            "durationMsDelta": 116.86,
+            "sizeBytesDelta": -7490,
+            "memoryDeltaBytesDelta": -8490656
+          }
+        },
+        {
+          "id": "rustWasm-vs-exceljs",
+          "baselineImplementationId": "exceljs",
+          "contenderImplementationId": "rustWasm",
+          "metrics": {
+            "durationMsDelta": 1.77,
+            "sizeBytesDelta": -16932,
+            "memoryDeltaBytesDelta": -5689576
+          }
+        },
+        {
+          "id": "rustWasm-vs-goWasm",
+          "baselineImplementationId": "goWasm",
+          "contenderImplementationId": "rustWasm",
+          "metrics": {
+            "durationMsDelta": -115.09,
+            "sizeBytesDelta": -9442,
+            "memoryDeltaBytesDelta": 2801080
+          }
+        }
+      ],
+      "diagnostics": {
+        "memory": {
+          "nodeHeapDeltaMeasured": true,
+          "wasmLinearMemoryIncluded": false,
+          "note": "memoryDeltaBytes reports Node heap deltas only; Go/Rust WASM linear memory is not instrumented in this benchmark."
+        },
+        "executionModel": {
+          "exceljs": "Streams rows directly to the Node writable via ExcelJS WorkbookWriter.",
+          "goWasm": "Accumulates workbook state inside Go/WASM and emits ZIP bytes during finalization callbacks.",
+          "rustWasm": "Accumulates workbook state inside Rust/WASM and returns final workbook bytes to Node at finalize time."
+        }
+      }
+    }
+  ]
+}
